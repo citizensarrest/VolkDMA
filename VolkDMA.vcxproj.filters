@@ -1,0 +1,44 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="include">
+      <UniqueIdentifier>{cdf14b50-69ad-4a85-a2aa-a90805305cd7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{1c5c0877-8518-445f-8891-ecc6aec9a305}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="lib">
+      <UniqueIdentifier>{992243c7-d6ce-40da-915c-e5ac3ee868be}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\dma.hh">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\leechcore.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\process.hh">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\vmmdll.h">
+      <Filter>include</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="lib\leechcore.lib">
+      <Filter>lib</Filter>
+    </Library>
+    <Library Include="lib\vmm.lib">
+      <Filter>lib</Filter>
+    </Library>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\dma.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\process.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
