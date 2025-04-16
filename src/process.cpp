@@ -48,7 +48,7 @@ bool PROCESS::write(uintptr_t address, void* buffer, size_t size) const {
 VMMDLL_SCATTER_HANDLE PROCESS::create_scatter() const {
     VMMDLL_SCATTER_HANDLE scatter_handle = VMMDLL_Scatter_Initialize(this->handle, this->pid, VMMDLL_FLAG_NOCACHE);
     if (!scatter_handle) {
-        std::cerr << "[PROCESS] Failed to create scatter handle." << "\n";
+        std::cerr << "[PROCESS] Failed to create scatter handle.\n";
     }
     return scatter_handle;
 }
@@ -79,12 +79,12 @@ bool PROCESS::execute_scatter(VMMDLL_SCATTER_HANDLE scatter_handle) const {
     bool success = true;
 
     if (!VMMDLL_Scatter_Execute(scatter_handle)) {
-        std::cerr << "[PROCESS] Failed to execute scatter." << "\n";
+        std::cerr << "[PROCESS] Failed to execute scatter.\n";
         success = false;
     }
 
     if (!VMMDLL_Scatter_Clear(scatter_handle, this->pid, VMMDLL_FLAG_NOCACHE)) {
-        std::cerr << "[PROCESS] Failed to clear scatter." << "\n";
+        std::cerr << "[PROCESS] Failed to clear scatter.\n";
         success = false;
     }
 

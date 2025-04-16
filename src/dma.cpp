@@ -7,7 +7,7 @@ bool DMA::initialize() {
     handle = VMMDLL_Initialize(4, args);
 
     if (!handle) {
-        std::cerr << "[DMA] Failed to initialize." << "\n";
+        std::cerr << "[DMA] Failed to initialize.\n";
         return false;
     }
 
