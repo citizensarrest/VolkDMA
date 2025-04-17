@@ -9,13 +9,13 @@ class PROCESS {
 public:
     PROCESS(VMM_HANDLE handle, const std::string& process_name);
 
-    uintptr_t get_base_address(const std::string& module_name) const;
+    uint64_t get_base_address(const std::string& module_name) const;
 
     bool fix_cr3(const std::string& process_name);
 
-    bool read(uintptr_t address, void* buffer, size_t size) const;
+    bool read(uint64_t address, void* buffer, size_t size) const;
     template <typename T>
-    T read(uintptr_t address) const {
+    T read(uint64_t address) const {
         T buffer{};
         read(address, &buffer, sizeof(T));
         return buffer;
@@ -38,9 +38,9 @@ public:
         return read<T>(result + offsets.back());
     }
 
-    bool write(uintptr_t address, void* buffer, size_t size) const;
+    bool write(uint64_t address, void* buffer, size_t size) const;
     template <typename T>
-    void write(uintptr_t address, T value) const {
+    void write(uint64_t address, T value) const {
         write(address, &value, sizeof(T));
     }
 

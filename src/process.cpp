@@ -16,17 +16,17 @@ PROCESS::PROCESS(VMM_HANDLE handle, const std::string& process_name)
     }
 }
 
-uintptr_t PROCESS::get_base_address(const std::string& module_name) const {
+uint64_t PROCESS::get_base_address(const std::string& module_name) const {
     PVMMDLL_MAP_MODULEENTRY module_info;
 
     if (!VMMDLL_Map_GetModuleFromNameU(handle, pid, module_name.c_str(), &module_info, VMMDLL_MODULE_FLAG_NORMAL)) {
         std::cerr << "[PROCESS] Failed to find base address for module: " + module_name << ".\n";
     }
 
-    return static_cast<uintptr_t>(module_info->vaBase);
+    return static_cast<uint64_t>(module_info->vaBase);
 }
 
-bool PROCESS::read(uintptr_t address, void* buffer, size_t size) const {
+bool PROCESS::read(uint64_t address, void* buffer, size_t size) const {
     DWORD read_size = 0;
     if (!VMMDLL_MemReadEx(this->handle, this->pid, address, static_cast<PBYTE>(buffer), size, &read_size, VMMDLL_FLAG_NOCACHE)) {
         std::cerr << "[PROCESS] Failed to read memory at 0x" << std::hex << address << " (PID: " << std::dec << pid << ").\n";
@@ -36,7 +36,7 @@ bool PROCESS::read(uintptr_t address, void* buffer, size_t size) const {
     return read_size == size;
 }
 
-bool PROCESS::write(uintptr_t address, void* buffer, size_t size) const {
+bool PROCESS::write(uint64_t address, void* buffer, size_t size) const {
     if (!VMMDLL_MemWrite(this->handle, this->pid, address, static_cast<PBYTE>(buffer), size)) {
         std::cerr << "[PROCESS] Failed to write memory at 0x" << std::hex << address << " (PID: " << std::dec << pid << ").\n";
         return false;
