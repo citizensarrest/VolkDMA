@@ -2,15 +2,14 @@
 
 #include "vmmdll.h"
 
-#include <string>
+#include <iostream>
 #include <vector>
+#include <sstream>
 
 class PROCESS {
 public:
     PROCESS(VMM_HANDLE handle, const std::string& process_name);
-
     uint64_t get_base_address(const std::string& module_name) const;
-
     bool fix_cr3(const std::string& process_name);
 
     bool read(uint64_t address, void* buffer, size_t size) const;
@@ -21,13 +20,7 @@ public:
         return buffer;
     }
 
-    uint64_t read_chain(uint64_t base, const std::vector<uint64_t>& offsets) const {
-        uint64_t result = read<uint64_t>(base + offsets.at(0));
-        for (size_t i = 1; i < offsets.size(); ++i) {
-            result = read<uint64_t>(result + offsets.at(i));
-        }
-        return result;
-    }
+    uint64_t read_chain(uint64_t base, const std::vector<uint64_t>& offsets) const;
 
     template <typename T>
     T read_chain(uint64_t base, const std::vector<uint64_t>& offsets) const {
@@ -60,12 +53,7 @@ public:
     }
 
     bool execute_scatter(VMMDLL_SCATTER_HANDLE scatter_handle) const;
-
-    int get_pid() const {
-        return pid;
-    }
-
 private:
     VMM_HANDLE handle;
-    int pid;
+    int process_id;
 };

@@ -1,25 +1,20 @@
 #include "process.hh"
 
-#include <sstream>
-#include <iostream>
+PROCESS::PROCESS(VMM_HANDLE handle, const std::string& process_name) : handle(handle) {
+    DWORD temp_process_id = 0;
 
-PROCESS::PROCESS(VMM_HANDLE handle, const std::string& process_name)
-    : handle(handle)
-{
-    DWORD temp_pid = 0;
-
-    if (!VMMDLL_PidGetFromName(handle, process_name.c_str(), &temp_pid) || temp_pid == 0) {
-        std::cerr << "[PROCESS] Failed to get PID for process: " << process_name << ".\n";
+    if (!VMMDLL_PidGetFromName(handle, process_name.c_str(), &temp_process_id) || temp_process_id == 0) {
+        std::cerr << "[PROCESS] Failed to get ID for process: " << process_name << ".\n";
     }
     else {
-        pid = static_cast<int>(temp_pid);
+        process_id = static_cast<int>(temp_process_id);
     }
 }
 
 uint64_t PROCESS::get_base_address(const std::string& module_name) const {
     PVMMDLL_MAP_MODULEENTRY module_info;
 
-    if (!VMMDLL_Map_GetModuleFromNameU(handle, pid, module_name.c_str(), &module_info, VMMDLL_MODULE_FLAG_NORMAL)) {
+    if (!VMMDLL_Map_GetModuleFromNameU(handle, process_id, module_name.c_str(), &module_info, VMMDLL_MODULE_FLAG_NORMAL)) {
         std::cerr << "[PROCESS] Failed to find base address for module: " + module_name << ".\n";
     }
 
@@ -28,17 +23,25 @@ uint64_t PROCESS::get_base_address(const std::string& module_name) const {
 
 bool PROCESS::read(uint64_t address, void* buffer, size_t size) const {
     DWORD read_size = 0;
-    if (!VMMDLL_MemReadEx(this->handle, this->pid, address, static_cast<PBYTE>(buffer), size, &read_size, VMMDLL_FLAG_NOCACHE)) {
-        std::cerr << "[PROCESS] Failed to read memory at 0x" << std::hex << address << " (PID: " << std::dec << pid << ").\n";
+    if (!VMMDLL_MemReadEx(this->handle, this->process_id, address, static_cast<PBYTE>(buffer), size, &read_size, VMMDLL_FLAG_NOCACHE)) {
+        std::cerr << "[PROCESS] Failed to read memory at 0x" << std::hex << address << " (Process ID: " << std::dec << process_id << ").\n";
         return false;
     }
 
     return read_size == size;
 }
 
+uint64_t PROCESS::read_chain(uint64_t base, const std::vector<uint64_t>& offsets) const {
+    uint64_t result = read<uint64_t>(base + offsets.at(0));
+    for (size_t i = 1; i < offsets.size(); ++i) {
+        result = read<uint64_t>(result + offsets.at(i));
+    }
+    return result;
+}
+
 bool PROCESS::write(uint64_t address, void* buffer, size_t size) const {
-    if (!VMMDLL_MemWrite(this->handle, this->pid, address, static_cast<PBYTE>(buffer), size)) {
-        std::cerr << "[PROCESS] Failed to write memory at 0x" << std::hex << address << " (PID: " << std::dec << pid << ").\n";
+    if (!VMMDLL_MemWrite(this->handle, this->process_id, address, static_cast<PBYTE>(buffer), size)) {
+        std::cerr << "[PROCESS] Failed to write memory at 0x" << std::hex << address << " (Process ID: " << std::dec << process_id << ").\n";
         return false;
     }
 
@@ -46,7 +49,8 @@ bool PROCESS::write(uint64_t address, void* buffer, size_t size) const {
 }
 
 VMMDLL_SCATTER_HANDLE PROCESS::create_scatter() const {
-    VMMDLL_SCATTER_HANDLE scatter_handle = VMMDLL_Scatter_Initialize(this->handle, this->pid, VMMDLL_FLAG_NOCACHE);
+    DWORD flags = VMMDLL_FLAG_NOCACHE | VMMDLL_FLAG_ZEROPAD_ON_FAIL;
+    VMMDLL_SCATTER_HANDLE scatter_handle = VMMDLL_Scatter_Initialize(this->handle, this->process_id, flags);
     if (!scatter_handle) {
         std::cerr << "[PROCESS] Failed to create scatter handle.\n";
     }
@@ -83,7 +87,7 @@ bool PROCESS::execute_scatter(VMMDLL_SCATTER_HANDLE scatter_handle) const {
         success = false;
     }
 
-    if (!VMMDLL_Scatter_Clear(scatter_handle, this->pid, VMMDLL_FLAG_NOCACHE)) {
+    if (!VMMDLL_Scatter_Clear(scatter_handle, this->process_id, VMMDLL_FLAG_NOCACHE)) {
         std::cerr << "[PROCESS] Failed to clear scatter.\n";
         success = false;
     }
@@ -101,14 +105,14 @@ struct Info {
     uint32_t index;
     uint32_t process_id;
     uint64_t dtb;
-    uint64_t kernelAddr;
+    uint64_t kernel_address;
     std::string name;
 };
 
 bool PROCESS::fix_cr3(const std::string& process_name) {
     PVMMDLL_MAP_MODULEENTRY module_entry;
 
-    bool result = VMMDLL_Map_GetModuleFromNameU(handle, pid, process_name.c_str(), &module_entry, NULL);
+    bool result = VMMDLL_Map_GetModuleFromNameU(handle, process_id, process_name.c_str(), &module_entry, NULL);
     if (result) {
         return true;
     }
@@ -154,7 +158,7 @@ bool PROCESS::fix_cr3(const std::string& process_name) {
     while (std::getline(iss, line)) {
         Info info = {};
         std::istringstream info_ss(line);
-        if (info_ss >> std::hex >> info.index >> std::dec >> info.process_id >> std::hex >> info.dtb >> info.kernelAddr >> info.name) {
+        if (info_ss >> std::hex >> info.index >> std::dec >> info.process_id >> std::hex >> info.dtb >> info.kernel_address >> info.name) {
             if (info.process_id == 0 || process_name.find(info.name) != std::string::npos) {
                 possible_dtbs.push_back(info.dtb);
             }
@@ -163,14 +167,14 @@ bool PROCESS::fix_cr3(const std::string& process_name) {
 
     for (size_t i = 0; i < possible_dtbs.size(); i++) {
         auto dtb = possible_dtbs[i];
-        VMMDLL_ConfigSet(handle, VMMDLL_OPT_PROCESS_DTB | pid, dtb);
-        result = VMMDLL_Map_GetModuleFromNameU(handle, pid, process_name.c_str(), &module_entry, NULL);
+        VMMDLL_ConfigSet(handle, VMMDLL_OPT_PROCESS_DTB | process_id, dtb);
+        result = VMMDLL_Map_GetModuleFromNameU(handle, process_id, process_name.c_str(), &module_entry, NULL);
         if (result) {
             static ULONG64 pml4_first[512];
             static ULONG64 pml4_second[512];
-            DWORD readsize;
+            DWORD read_size;
 
-            if (!VMMDLL_MemReadEx(handle, -1, dtb, reinterpret_cast<PBYTE>(pml4_first), sizeof(pml4_first), &readsize,
+            if (!VMMDLL_MemReadEx(handle, -1, dtb, reinterpret_cast<PBYTE>(pml4_first), sizeof(pml4_first), &read_size,
                 VMMDLL_FLAG_NOCACHE | VMMDLL_FLAG_NOPAGING | VMMDLL_FLAG_ZEROPAD_ON_FAIL | VMMDLL_FLAG_NOPAGING_IO)) {
 #ifdef _DEBUG
                 std::cerr << "[PROCESS] Failed to read PML4 the first time.\n";
@@ -178,7 +182,7 @@ bool PROCESS::fix_cr3(const std::string& process_name) {
                 return false;
             }
 
-            if (!VMMDLL_MemReadEx(handle, -1, dtb, reinterpret_cast<PBYTE>(pml4_second), sizeof(pml4_second), &readsize,
+            if (!VMMDLL_MemReadEx(handle, -1, dtb, reinterpret_cast<PBYTE>(pml4_second), sizeof(pml4_second), &read_size,
                 VMMDLL_FLAG_NOCACHE | VMMDLL_FLAG_NOPAGING | VMMDLL_FLAG_ZEROPAD_ON_FAIL | VMMDLL_FLAG_NOPAGING_IO)) {
 #ifdef _DEBUG
                 std::cerr << "[PROCESS] Failed to read PML4 the second time.\n";
@@ -194,7 +198,7 @@ bool PROCESS::fix_cr3(const std::string& process_name) {
             }
 
             VMMDLL_MemReadEx((VMM_HANDLE)-666, 333, (ULONG64)pml4_first, nullptr, 0, nullptr, 0);
-            VMMDLL_ConfigSet(handle, VMMDLL_OPT_PROCESS_DTB | pid, 666);
+            VMMDLL_ConfigSet(handle, VMMDLL_OPT_PROCESS_DTB | process_id, 666);
 
             return true;
         }
