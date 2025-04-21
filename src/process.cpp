@@ -49,8 +49,7 @@ bool PROCESS::write(uint64_t address, void* buffer, size_t size) const {
 }
 
 VMMDLL_SCATTER_HANDLE PROCESS::create_scatter() const {
-    DWORD flags = VMMDLL_FLAG_NOCACHE | VMMDLL_FLAG_ZEROPAD_ON_FAIL;
-    VMMDLL_SCATTER_HANDLE scatter_handle = VMMDLL_Scatter_Initialize(this->handle, this->process_id, flags);
+    VMMDLL_SCATTER_HANDLE scatter_handle = VMMDLL_Scatter_Initialize(this->handle, this->process_id, scatter_flags);
     if (!scatter_handle) {
         std::cerr << "[PROCESS] Failed to create scatter handle.\n";
     }
@@ -60,6 +59,7 @@ VMMDLL_SCATTER_HANDLE PROCESS::create_scatter() const {
 void PROCESS::close_scatter(VMMDLL_SCATTER_HANDLE scatter_handle) const {
     if (scatter_handle) {
         VMMDLL_Scatter_CloseHandle(scatter_handle);
+        scatter_counts.erase(scatter_handle);
     }
 }
 
@@ -68,6 +68,8 @@ bool PROCESS::add_read_scatter(VMMDLL_SCATTER_HANDLE scatter_handle, uint64_t ad
         std::cerr << "[PROCESS] Failed to prepare scatter read at 0x" << std::hex << address << std::dec << ".\n";
         return false;
     }
+    ++scatter_counts[scatter_handle];
+
     return true;
 }
 
@@ -76,21 +78,29 @@ bool PROCESS::add_write_scatter(VMMDLL_SCATTER_HANDLE scatter_handle, uint64_t a
         std::cerr << "[PROCESS] Failed to prepare scatter write at 0x" << std::hex << address << std::dec << ".\n";
         return false;
     }
+    ++scatter_counts[scatter_handle];
+
     return true;
 }
 
 bool PROCESS::execute_scatter(VMMDLL_SCATTER_HANDLE scatter_handle) const {
     bool success = true;
 
+    auto it = scatter_counts.find(scatter_handle);
+    if (it == scatter_counts.end() || it->second == 0) {
+        return success;
+    }
+
     if (!VMMDLL_Scatter_Execute(scatter_handle)) {
         std::cerr << "[PROCESS] Failed to execute scatter.\n";
         success = false;
     }
 
-    if (!VMMDLL_Scatter_Clear(scatter_handle, this->process_id, VMMDLL_FLAG_NOCACHE)) {
+    if (!VMMDLL_Scatter_Clear(scatter_handle, this->process_id, scatter_flags)) {
         std::cerr << "[PROCESS] Failed to clear scatter.\n";
         success = false;
     }
+    scatter_counts[scatter_handle] = 0;
 
     return success;
 }

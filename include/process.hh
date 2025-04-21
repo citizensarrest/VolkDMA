@@ -5,6 +5,7 @@
 #include <iostream>
 #include <vector>
 #include <sstream>
+#include <unordered_map>
 
 class PROCESS {
 public:
@@ -56,4 +57,6 @@ public:
 private:
     VMM_HANDLE handle;
     int process_id;
+    static constexpr DWORD scatter_flags = VMMDLL_FLAG_NOCACHE | VMMDLL_FLAG_ZEROPAD_ON_FAIL;
+    mutable std::unordered_map<VMMDLL_SCATTER_HANDLE, int> scatter_counts;
 };

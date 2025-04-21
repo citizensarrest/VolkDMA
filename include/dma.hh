@@ -8,7 +8,7 @@
 
 class DMA {
 public:
-    DMA(bool use_memory_map);
+    DMA(bool use_memory_map = true);
     ~DMA();
     VMM_HANDLE handle = nullptr;
 private:
