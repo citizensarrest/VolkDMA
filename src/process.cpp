@@ -22,6 +22,10 @@ uint64_t PROCESS::get_base_address(const std::string& module_name) const {
 }
 
 bool PROCESS::read(uint64_t address, void* buffer, size_t size) const {
+    if (address == 0) {
+        return false;
+    }
+
     DWORD read_size = 0;
     if (!VMMDLL_MemReadEx(this->handle, this->process_id, address, static_cast<PBYTE>(buffer), size, &read_size, VMMDLL_FLAG_NOCACHE)) {
         std::cerr << "[PROCESS] Failed to read memory at 0x" << std::hex << address << " (Process ID: " << std::dec << process_id << ").\n";
@@ -40,6 +44,10 @@ uint64_t PROCESS::read_chain(uint64_t base, const std::vector<uint64_t>& offsets
 }
 
 bool PROCESS::write(uint64_t address, void* buffer, size_t size) const {
+    if (address == 0) {
+        return false;
+    }
+
     if (!VMMDLL_MemWrite(this->handle, this->process_id, address, static_cast<PBYTE>(buffer), size)) {
         std::cerr << "[PROCESS] Failed to write memory at 0x" << std::hex << address << " (Process ID: " << std::dec << process_id << ").\n";
         return false;
@@ -64,6 +72,10 @@ void PROCESS::close_scatter(VMMDLL_SCATTER_HANDLE scatter_handle) const {
 }
 
 bool PROCESS::add_read_scatter(VMMDLL_SCATTER_HANDLE scatter_handle, uint64_t address, void* buffer, size_t size) const {
+    if (address == 0) {
+        return false;
+    }
+
     if (!VMMDLL_Scatter_PrepareEx(scatter_handle, address, size, static_cast<PBYTE>(buffer), NULL)) {
         std::cerr << "[PROCESS] Failed to prepare scatter read at 0x" << std::hex << address << std::dec << ".\n";
         return false;
@@ -74,6 +86,10 @@ bool PROCESS::add_read_scatter(VMMDLL_SCATTER_HANDLE scatter_handle, uint64_t ad
 }
 
 bool PROCESS::add_write_scatter(VMMDLL_SCATTER_HANDLE scatter_handle, uint64_t address, void* buffer, size_t size) const {
+    if (address == 0) {
+        return false;
+    }
+
     if (!VMMDLL_Scatter_PrepareWrite(scatter_handle, address, static_cast<PBYTE>(buffer), size)) {
         std::cerr << "[PROCESS] Failed to prepare scatter write at 0x" << std::hex << address << std::dec << ".\n";
         return false;
