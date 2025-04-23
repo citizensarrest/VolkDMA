@@ -35,6 +35,76 @@ DMA::~DMA() {
     }
 }
 
+DWORD DMA::get_process_id(std::string process_name) {
+    DWORD process_id = 0;
+
+    if (!VMMDLL_PidGetFromName(handle, process_name.c_str(), &process_id) || process_id == 0) {
+        std::cerr << "[PROCESS] Failed to get ID for process: " << process_name << ".\n";
+    }
+
+    return process_id;
+}
+
+std::vector<DWORD> DMA::get_process_id_list(std::string process_name) {
+    std::vector<DWORD> list = { };
+    PVMMDLL_PROCESS_INFORMATION process_info = NULL;
+    DWORD total_processes = 0;
+
+    if (!VMMDLL_ProcessGetInformationAll(handle, &process_info, &total_processes) || total_processes == 0) {
+        std::cerr << "[PROCESS] Failed to retrieve process process list.\n";
+        return list;
+    }
+
+    for (size_t i = 0; i < total_processes; i++) {
+        auto process = process_info[i];
+        if (strstr(process.szNameLong, process_name.c_str())) {
+            list.push_back(process.dwPID);
+        }
+    }
+
+    return list;
+}
+
+uint64_t DMA::find_signature(const char* signature, uint64_t range_start, uint64_t range_end, DWORD process_id) {
+    if (!signature || !*signature || range_start >= range_end) {
+        return 0;
+    }
+
+    uint64_t size = range_end - range_start;
+    std::vector<uint8_t> buffer(size);
+
+    if (!VMMDLL_MemReadEx(handle, process_id, range_start, buffer.data(), size, nullptr, VMMDLL_FLAG_NOCACHE | VMMDLL_FLAG_ZEROPAD_ON_FAIL)) {
+        return 0;
+    }
+
+    const char* pat = signature;
+    uint64_t first_match = 0;
+
+    for (uint64_t i = 0; i < size; i++) {
+        if (*pat == '\0') {
+            break;
+        }
+
+        if (*pat == '?' || buffer[i] == get_byte(pat)) {
+            if (!first_match) {
+                first_match = range_start + i;
+            }
+
+            pat += (*pat == '?') ? 2 : 3;
+
+            if (*pat == '\0') {
+                return first_match;
+            }
+        }
+        else {
+            pat = signature;
+            first_match = 0;
+        }
+    }
+
+    return 0;
+}
+
 bool DMA::dump_memory_map() {
     LPCSTR args[] = { "-device", "fpga", "-waitinitialize", "-norefresh", "", "" };
     int argc = 4;
@@ -105,4 +175,9 @@ bool DMA::clean_fpga() {
     }
 
     return true;
+}
+
+uint8_t DMA::get_byte(const char* hex) {
+    char byte[3] = { hex[0], hex[1], 0 };
+    return static_cast<uint8_t>(strtoul(byte, nullptr, 16));
 }

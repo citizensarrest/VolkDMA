@@ -24,6 +24,9 @@
     <ClInclude Include="include\vmmdll.h">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="include\inputstate.hh">
+      <Filter>include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Library Include="lib\leechcore.lib">
@@ -38,6 +41,9 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\process.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\inputstate.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
