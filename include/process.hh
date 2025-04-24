@@ -8,14 +8,15 @@ public:
     PROCESS(DMA& dma, const std::string& process_name);
     uint64_t get_base_address(const std::string& module_name) const;
     bool fix_cr3(const std::string& process_name);
+    bool virtual_to_physical(uint64_t virtual_address, uint64_t& physical_address) const;
     bool read(uint64_t address, void* buffer, size_t size) const;
     uint64_t read_chain(uint64_t base, const std::vector<uint64_t>& offsets) const;
-    bool write(uint64_t address, void* buffer, size_t size) const;
-    VMMDLL_SCATTER_HANDLE create_scatter() const;
+    bool write(uint64_t address, void* buffer, size_t size, uint32_t pid = 0) const;
+    VMMDLL_SCATTER_HANDLE create_scatter(DWORD pid = 0) const;
     void close_scatter(VMMDLL_SCATTER_HANDLE scatter_handle) const;
     bool add_read_scatter(VMMDLL_SCATTER_HANDLE scatter_handle, uint64_t address, void* buffer, size_t size) const;
     bool add_write_scatter(VMMDLL_SCATTER_HANDLE scatter_handle, uint64_t address, void* buffer, size_t size) const;
-    bool execute_scatter(VMMDLL_SCATTER_HANDLE scatter_handle) const;
+    bool execute_scatter(VMMDLL_SCATTER_HANDLE scatter_handle, DWORD pid = 0) const;
 
     template <typename T>
     T read(uint64_t address) const {
@@ -34,8 +35,8 @@ public:
     }
 
     template <typename T>
-    void write(uint64_t address, T value) const {
-        write(address, &value, sizeof(T));
+    void write(uint64_t address, T value, uint32_t pid = 0) const {
+        write(address, &value, sizeof(T), pid);
     }
 
     template <typename T>

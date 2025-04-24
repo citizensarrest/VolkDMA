@@ -113,6 +113,10 @@ bool PROCESS::fix_cr3(const std::string& process_name) {
     return false;
 }
 
+bool PROCESS::virtual_to_physical(uint64_t virtual_address, uint64_t& physical_address) const {
+    return VMMDLL_VirtualToPhysical(dma.handle, virtual_address, &physical_address);
+}
+
 bool PROCESS::read(uint64_t address, void* buffer, size_t size) const {
     if (address == 0) {
         return false;
@@ -135,26 +139,31 @@ uint64_t PROCESS::read_chain(uint64_t base, const std::vector<uint64_t>& offsets
     return result;
 }
 
-bool PROCESS::write(uint64_t address, void* buffer, size_t size) const {
+bool PROCESS::write(uint64_t address, void* buffer, size_t size, uint32_t pid) const {
     if (address == 0) {
         return false;
     }
 
-    if (!VMMDLL_MemWrite(dma.handle, this->process_id, address, static_cast<PBYTE>(buffer), size)) {
-        std::cerr << "[PROCESS] Failed to write memory at 0x" << std::hex << address << " (Process ID: " << std::dec << process_id << ").\n";
+    uint32_t target_pid = (pid == 0) ? this->process_id : pid;
+
+    if (!VMMDLL_MemWrite(dma.handle, target_pid, address, static_cast<PBYTE>(buffer), size)) {
+        std::cerr << "[PROCESS] Failed to write memory at 0x" << std::hex << address
+            << " (Process ID: " << std::dec << target_pid << ").\n";
         return false;
     }
 
     return true;
 }
 
-VMMDLL_SCATTER_HANDLE PROCESS::create_scatter() const {
-    VMMDLL_SCATTER_HANDLE scatter_handle = VMMDLL_Scatter_Initialize(dma.handle, this->process_id, scatter_flags);
+VMMDLL_SCATTER_HANDLE PROCESS::create_scatter(DWORD pid) const {
+    DWORD target_pid = (pid != 0) ? pid : this->process_id;
+    VMMDLL_SCATTER_HANDLE scatter_handle = VMMDLL_Scatter_Initialize(dma.handle, target_pid, scatter_flags);
     if (!scatter_handle) {
         std::cerr << "[PROCESS] Failed to create scatter handle.\n";
     }
     return scatter_handle;
 }
+
 
 void PROCESS::close_scatter(VMMDLL_SCATTER_HANDLE scatter_handle) const {
     if (scatter_handle) {
@@ -191,7 +200,9 @@ bool PROCESS::add_write_scatter(VMMDLL_SCATTER_HANDLE scatter_handle, uint64_t a
     return true;
 }
 
-bool PROCESS::execute_scatter(VMMDLL_SCATTER_HANDLE scatter_handle) const {
+bool PROCESS::execute_scatter(VMMDLL_SCATTER_HANDLE scatter_handle, DWORD pid) const {
+    DWORD target_pid = (pid != 0) ? pid : this->process_id;
+    
     bool success = true;
 
     auto it = scatter_counts.find(scatter_handle);
@@ -204,7 +215,7 @@ bool PROCESS::execute_scatter(VMMDLL_SCATTER_HANDLE scatter_handle) const {
         success = false;
     }
 
-    if (!VMMDLL_Scatter_Clear(scatter_handle, this->process_id, scatter_flags)) {
+    if (!VMMDLL_Scatter_Clear(scatter_handle, target_pid, scatter_flags)) {
         std::cerr << "[PROCESS] Failed to clear scatter.\n";
         success = false;
     }
