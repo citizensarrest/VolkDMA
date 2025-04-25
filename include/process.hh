@@ -8,6 +8,7 @@ public:
     PROCESS(DMA& dma, const std::string& process_name);
     uint64_t get_base_address(const std::string& module_name) const;
     bool fix_cr3(const std::string& process_name);
+    bool is_valid_address(uint64_t address) const;
     bool virtual_to_physical(uint64_t virtual_address, uint64_t& physical_address) const;
     bool read(uint64_t address, void* buffer, size_t size) const;
     uint64_t read_chain(uint64_t base, const std::vector<uint64_t>& offsets) const;
@@ -63,6 +64,8 @@ private:
 
     static uint64_t cb_size;
     static VOID cb_add_file(_Inout_ HANDLE h, _In_ LPCSTR uszName, _In_ ULONG64 cb, _In_opt_ PVMMDLL_VFS_FILELIST_EXINFO pExInfo);
+
+    static constexpr uint64_t minimum_valid_address = 0x1000;
 
     static constexpr DWORD scatter_flags = VMMDLL_FLAG_NOCACHE | VMMDLL_FLAG_ZEROPAD_ON_FAIL;
     mutable std::unordered_map<VMMDLL_SCATTER_HANDLE, int> scatter_counts;

@@ -113,12 +113,20 @@ bool PROCESS::fix_cr3(const std::string& process_name) {
     return false;
 }
 
+bool PROCESS::is_valid_address(uint64_t address) const {
+    return address >= minimum_valid_address;
+}
+
 bool PROCESS::virtual_to_physical(uint64_t virtual_address, uint64_t& physical_address) const {
+    if (!is_valid_address(virtual_address)) {
+        return false;
+    }
+
     return VMMDLL_VirtualToPhysical(dma.handle, virtual_address, &physical_address);
 }
 
 bool PROCESS::read(uint64_t address, void* buffer, size_t size) const {
-    if (address == 0) {
+    if (!is_valid_address(address)) {
         return false;
     }
 
@@ -140,7 +148,7 @@ uint64_t PROCESS::read_chain(uint64_t base, const std::vector<uint64_t>& offsets
 }
 
 bool PROCESS::write(uint64_t address, void* buffer, size_t size, uint32_t pid) const {
-    if (address == 0) {
+    if (!is_valid_address(address)) {
         return false;
     }
 
@@ -173,7 +181,7 @@ void PROCESS::close_scatter(VMMDLL_SCATTER_HANDLE scatter_handle) const {
 }
 
 bool PROCESS::add_read_scatter(VMMDLL_SCATTER_HANDLE scatter_handle, uint64_t address, void* buffer, size_t size) const {
-    if (address == 0) {
+    if (!is_valid_address(address)) {
         return false;
     }
 
@@ -187,7 +195,7 @@ bool PROCESS::add_read_scatter(VMMDLL_SCATTER_HANDLE scatter_handle, uint64_t ad
 }
 
 bool PROCESS::add_write_scatter(VMMDLL_SCATTER_HANDLE scatter_handle, uint64_t address, void* buffer, size_t size) const {
-    if (address == 0) {
+    if (!is_valid_address(address)) {
         return false;
     }
 
