@@ -4,47 +4,50 @@
     <Filter Include="include">
       <UniqueIdentifier>{cdf14b50-69ad-4a85-a2aa-a90805305cd7}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src">
+    <Filter Include="include\leechcore">
+      <UniqueIdentifier>{bb6ede5a-932c-445b-a5e6-da3b79ed9b02}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\vmm">
+      <UniqueIdentifier>{f4799916-a360-4b2b-9914-6b4c94c4c272}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source">
       <UniqueIdentifier>{1c5c0877-8518-445f-8891-ecc6aec9a305}</UniqueIdentifier>
     </Filter>
-    <Filter Include="lib">
-      <UniqueIdentifier>{992243c7-d6ce-40da-915c-e5ac3ee868be}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\dma.hh">
-      <Filter>include</Filter>
+    <ClInclude Include="include\leechcore\leechcore.h">
+      <Filter>include\leechcore</Filter>
     </ClInclude>
-    <ClInclude Include="include\leechcore.h">
-      <Filter>include</Filter>
+    <ClInclude Include="include\vmm\vmmdll.h">
+      <Filter>include\vmm</Filter>
     </ClInclude>
-    <ClInclude Include="include\process.hh">
-      <Filter>include</Filter>
+    <ClInclude Include="source\dma.hh">
+      <Filter>source</Filter>
     </ClInclude>
-    <ClInclude Include="include\vmmdll.h">
-      <Filter>include</Filter>
+    <ClInclude Include="source\inputstate.hh">
+      <Filter>source</Filter>
     </ClInclude>
-    <ClInclude Include="include\inputstate.hh">
-      <Filter>include</Filter>
+    <ClInclude Include="source\process.hh">
+      <Filter>source</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Library Include="lib\leechcore.lib">
-      <Filter>lib</Filter>
+    <Library Include="include\vmm\vmm.lib">
+      <Filter>include\vmm</Filter>
     </Library>
-    <Library Include="lib\vmm.lib">
-      <Filter>lib</Filter>
+    <Library Include="include\leechcore\leechcore.lib">
+      <Filter>include\leechcore</Filter>
     </Library>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\dma.cpp">
-      <Filter>src</Filter>
+    <ClCompile Include="source\dma.cpp">
+      <Filter>source</Filter>
     </ClCompile>
-    <ClCompile Include="src\process.cpp">
-      <Filter>src</Filter>
+    <ClCompile Include="source\inputstate.cpp">
+      <Filter>source</Filter>
     </ClCompile>
-    <ClCompile Include="src\inputstate.cpp">
-      <Filter>src</Filter>
+    <ClCompile Include="source\process.cpp">
+      <Filter>source</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
