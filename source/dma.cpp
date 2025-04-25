@@ -9,7 +9,7 @@ DMA::DMA(bool use_memory_map) {
         auto current_path = std::filesystem::current_path();
         path = (current_path / "memory_map.txt").string();
 
-        bool dumped = std::filesystem::exists(path) || dump_memory_map();
+        bool dumped = std::filesystem::exists(path) || this->dump_memory_map();
         if (!dumped) {
             std::cerr << "[DMA] Could not dump memory map.\n";
         }
@@ -19,38 +19,38 @@ DMA::DMA(bool use_memory_map) {
         }
     }
 
-    handle = VMMDLL_Initialize(argc, args);
-    if (!handle) {
+    this->handle = VMMDLL_Initialize(argc, args);
+    if (!this->handle) {
         std::cerr << "[DMA] Failed to initialize.\n";
         return;
     }
 
-    clean_fpga();
+    this->clean_fpga();
 }
 
 DMA::~DMA() {
-    if (handle) {
-        VMMDLL_Close(handle);
-        handle = nullptr;
+    if (this->handle) {
+        VMMDLL_Close(this->handle);
+        this->handle = nullptr;
     }
 }
 
-DWORD DMA::get_process_id(std::string process_name) {
+DWORD DMA::get_process_id(const std::string& process_name) {
     DWORD process_id = 0;
 
-    if (!VMMDLL_PidGetFromName(handle, process_name.c_str(), &process_id) || process_id == 0) {
+    if (!VMMDLL_PidGetFromName(this->handle, process_name.c_str(), &process_id) || process_id == 0) {
         std::cerr << "[PROCESS] Failed to get ID for process: " << process_name << ".\n";
     }
 
     return process_id;
 }
 
-std::vector<DWORD> DMA::get_process_id_list(std::string process_name) {
+std::vector<DWORD> DMA::get_process_id_list(const std::string& process_name) {
     std::vector<DWORD> list = { };
     PVMMDLL_PROCESS_INFORMATION process_info = NULL;
     DWORD total_processes = 0;
 
-    if (!VMMDLL_ProcessGetInformationAll(handle, &process_info, &total_processes) || total_processes == 0) {
+    if (!VMMDLL_ProcessGetInformationAll(this->handle, &process_info, &total_processes) || total_processes == 0) {
         std::cerr << "[PROCESS] Failed to retrieve process process list.\n";
         return list;
     }
@@ -73,7 +73,7 @@ uint64_t DMA::find_signature(const char* signature, uint64_t range_start, uint64
     uint64_t size = range_end - range_start;
     std::vector<uint8_t> buffer(size);
 
-    if (!VMMDLL_MemReadEx(handle, process_id, range_start, buffer.data(), size, nullptr, VMMDLL_FLAG_NOCACHE | VMMDLL_FLAG_ZEROPAD_ON_FAIL)) {
+    if (!VMMDLL_MemReadEx(this->handle, process_id, range_start, buffer.data(), size, nullptr, VMMDLL_FLAG_NOCACHE | VMMDLL_FLAG_ZEROPAD_ON_FAIL)) {
         return 0;
     }
 
@@ -85,7 +85,7 @@ uint64_t DMA::find_signature(const char* signature, uint64_t range_start, uint64
             break;
         }
 
-        if (*pat == '?' || buffer[i] == get_byte(pat)) {
+        if (*pat == '?' || buffer[i] == this->get_byte(pat)) {
             if (!first_match) {
                 first_match = range_start + i;
             }
@@ -155,7 +155,7 @@ bool DMA::dump_memory_map() {
 bool DMA::clean_fpga() {
     ULONG64 fpga_id = 0, version_major = 0, version_minor = 0;
 
-    if (!VMMDLL_ConfigGet(handle, LC_OPT_FPGA_FPGA_ID, &fpga_id) && VMMDLL_ConfigGet(handle, LC_OPT_FPGA_VERSION_MAJOR, &version_major) && VMMDLL_ConfigGet(handle, LC_OPT_FPGA_VERSION_MINOR, &version_minor)) {
+    if (!VMMDLL_ConfigGet(this->handle, LC_OPT_FPGA_FPGA_ID, &fpga_id) && VMMDLL_ConfigGet(this->handle, LC_OPT_FPGA_VERSION_MAJOR, &version_major) && VMMDLL_ConfigGet(this->handle, LC_OPT_FPGA_VERSION_MINOR, &version_minor)) {
         std::cout << "[DMA] Failed to lookup FPGA device. Attempting to continue initializing.\n";
         return false;
     }
@@ -170,7 +170,7 @@ bool DMA::clean_fpga() {
             return false;
         }
 
-        LcCommand(lc_handle, LC_CMD_FPGA_CFGREGPCIE_MARKWR | 0x002, sizeof(abort_2), abort_2, NULL, NULL);
+        LcCommand(lc_handle, LC_CMD_FPGA_CFGREGPCIE_MARKWR | 0x002, sizeof(this->abort_2), this->abort_2, NULL, NULL);
         LcClose(lc_handle);
     }
 
