@@ -64,7 +64,7 @@ private:
 
     static constexpr uint64_t minimum_valid_address = 0x1000;
 
-    static constexpr DWORD scatter_flags = VMMDLL_FLAG_NOCACHE | VMMDLL_FLAG_ZEROPAD_ON_FAIL;
+    static constexpr DWORD scatter_flags = VMMDLL_FLAG_NOCACHE | VMMDLL_FLAG_ZEROPAD_ON_FAIL | VMMDLL_FLAG_SCATTER_PREPAREEX_NOMEMZERO;
     mutable std::unordered_map<VMMDLL_SCATTER_HANDLE, int> scatter_counts;
 
     static uint64_t cb_size;
