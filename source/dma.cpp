@@ -156,7 +156,7 @@ bool DMA::clean_fpga() {
     ULONG64 fpga_id = 0, version_major = 0, version_minor = 0;
 
     if (!VMMDLL_ConfigGet(this->handle, LC_OPT_FPGA_FPGA_ID, &fpga_id) && VMMDLL_ConfigGet(this->handle, LC_OPT_FPGA_VERSION_MAJOR, &version_major) && VMMDLL_ConfigGet(this->handle, LC_OPT_FPGA_VERSION_MINOR, &version_minor)) {
-        std::cout << "[DMA] Failed to lookup FPGA device. Attempting to continue initializing.\n";
+        std::cerr << "[DMA] Failed to lookup FPGA device. Attempting to continue initializing.\n";
         return false;
     }
 
@@ -166,7 +166,7 @@ bool DMA::clean_fpga() {
         lc_handle = LcCreate(&config);
 
         if (!lc_handle) {
-            std::cout << "[DMA] Failed to create FPGA device handle. Attempting to continue initializing.\n";
+            std::cerr << "[DMA] Failed to create FPGA device handle. Attempting to continue initializing.\n";
             return false;
         }
 

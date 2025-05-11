@@ -161,13 +161,24 @@ const std::unordered_map<int, std::string> INPUTSTATE::inputs = {
 
 INPUTSTATE::INPUTSTATE(DMA& dma) : dma(dma) {
 	std::string windows_version_string = this->query_registry_value("HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\CurrentBuild", RegistryType::sz);
-    if (windows_version_string.empty()) return;
+    if (windows_version_string.empty()) {
+        std::cerr << "[INPUTSTATE] Failed to retrieve Windows version from registry.\n";
+        return;
+    }
+
     DWORD windows_version = std::stoi(windows_version_string);
 
 	this->windows_logon_process_id = this->dma.get_process_id("winlogon.exe");
+    if (!this->windows_logon_process_id) {
+        std::cerr << "[INPUTSTATE] Failed to get process ID for winlogon.exe.\n";
+        return;
+    }
 
 	if (windows_version > 22000) {
 		std::vector<DWORD> process_ids = this->dma.get_process_id_list("csrss.exe");
+        if (process_ids.empty()) {
+            std::cerr << "[INPUTSTATE] No csrss.exe processes found.\n";
+        }
 
 		for (DWORD process_id : process_ids) {
 			PVMMDLL_MAP_MODULEENTRY win32k_module_info;
@@ -231,6 +242,10 @@ INPUTSTATE::INPUTSTATE(DMA& dma) : dma(dma) {
 		}
 		VMMDLL_MemFree(eat_map);
 	}
+
+    if (this->async_key_state == 0 || this->async_key_state > 0x7FFFFFFFFFFF) {
+        std::cerr << "[INPUTSTATE] Failed to initialize. Windows version: " << windows_version << "\n";
+    }
 }
 
 void INPUTSTATE::read_bitmap() {
