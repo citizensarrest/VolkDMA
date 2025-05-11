@@ -243,8 +243,9 @@ INPUTSTATE::INPUTSTATE(DMA& dma) : dma(dma) {
 		VMMDLL_MemFree(eat_map);
 	}
 
-    if (this->async_key_state == 0 || this->async_key_state > 0x7FFFFFFFFFFF) {
-        std::cerr << "[INPUTSTATE] Failed to initialize. Windows version: " << windows_version << "\n";
+    if (this->async_key_state <= 0x7FFFFFFFFFFF) {
+        std::cerr << "[INPUTSTATE] Failed to initialize. Windows version: " << windows_version
+            << ", Async key state: 0x" << std::hex << this->async_key_state << std::dec << "\n";
     }
 }
 
