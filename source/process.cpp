@@ -5,13 +5,29 @@ PROCESS::PROCESS(DMA& dma, const std::string& process_name) : dma(dma) {
 }
 
 uint64_t PROCESS::get_base_address(const std::string& module_name) const {
-    PVMMDLL_MAP_MODULEENTRY module_info;
+    PVMMDLL_MAP_MODULEENTRY module_entry;
 
-    if (!VMMDLL_Map_GetModuleFromNameU(this->dma.handle, this->process_id, module_name.c_str(), &module_info, VMMDLL_MODULE_FLAG_NORMAL)) {
+    if (!VMMDLL_Map_GetModuleFromNameU(this->dma.handle, this->process_id, module_name.c_str(), &module_entry, VMMDLL_MODULE_FLAG_NORMAL)) {
         std::cerr << "[PROCESS] Failed to find base address for module: " + module_name << ".\n";
+        return 0;
     }
 
-    return static_cast<uint64_t>(module_info->vaBase);
+    uint64_t base = static_cast<uint64_t>(module_entry->vaBase);
+    VMMDLL_MemFree(module_entry);
+    return base;
+}
+
+std::string PROCESS::get_path(const std::string& module_name) const {
+    PVMMDLL_MAP_MODULEENTRY module_entry;
+
+    if (!VMMDLL_Map_GetModuleFromNameU(this->dma.handle, this->process_id, module_name.c_str(), &module_entry, VMMDLL_MODULE_FLAG_NORMAL)) {
+        std::cerr << "[PROCESS] Failed to find path for module: " + module_name << ".\n";
+        return "";
+    }
+
+    std::string path = module_entry->uszFullName ? std::string(module_entry->uszFullName) : "";
+    VMMDLL_MemFree(module_entry);
+    return path;
 }
 
 bool PROCESS::fix_cr3(const std::string& process_name) {
