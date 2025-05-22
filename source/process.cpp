@@ -30,6 +30,26 @@ std::string PROCESS::get_path(const std::string& module_name) const {
     return path;
 }
 
+std::vector<std::string> PROCESS::get_modules() const {
+    std::vector<std::string> modules;
+    PVMMDLL_MAP_MODULE module_map = nullptr;
+
+    if (!VMMDLL_Map_GetModuleU(this->dma.handle, this->process_id, &module_map, VMMDLL_MODULE_FLAG_NORMAL)) {
+        std::cerr << "[PROCESS] Failed to get module list.\n";
+        return modules;
+    }
+
+    for (DWORD i = 0; i < module_map->cMap; ++i) {
+        const auto& entry = module_map->pMap[i];
+        if (entry.uszText) {
+            modules.emplace_back(entry.uszText);
+        }
+    }
+
+    VMMDLL_MemFree(module_map);
+    return modules;
+}
+
 bool PROCESS::fix_cr3(const std::string& process_name) {
     PVMMDLL_MAP_MODULEENTRY module_entry;
 

@@ -8,6 +8,7 @@ public:
     PROCESS(DMA& dma, const std::string& process_name);
     uint64_t get_base_address(const std::string& module_name) const;
     std::string get_path(const std::string& module_name) const;
+    std::vector<std::string> get_modules() const;
     bool fix_cr3(const std::string& process_name);
     bool is_valid_address(uint64_t address) const;
     bool virtual_to_physical(uint64_t virtual_address, uint64_t& physical_address) const;
