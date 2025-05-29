@@ -17,6 +17,63 @@ uint64_t PROCESS::get_base_address(const std::string& module_name) const {
     return base;
 }
 
+bool PROCESS::dump_module(const std::string& module_name, const std::string& path) const {
+    const uint64_t base_address = this->get_base_address(module_name);
+    if (!base_address) {
+        std::cerr << "[PROCESS] Failed to get base address for module: " << module_name << ".\n";
+        return false;
+    }
+
+    IMAGE_DOS_HEADER dos{};
+    if (!read(base_address, &dos, sizeof(IMAGE_DOS_HEADER))) {
+        std::cerr << "[PROCESS] Failed to read IMAGE_DOS_HEADER for module: " << module_name << ".\n";
+        return false;
+    }
+
+    if (dos.e_magic != IMAGE_DOS_SIGNATURE) {
+        std::cerr << "[PROCESS] Invalid DOS signature for module: " << module_name << ".\n";
+        return false;
+    }
+
+    IMAGE_NT_HEADERS64 nt{};
+    if (!this->read(base_address + dos.e_lfanew, &nt, sizeof(nt))) {
+        std::cerr << "[PROCESS] Failed to read IMAGE_NT_HEADERS64 for module: " << module_name << ".\n";
+        return false;
+    }
+
+    if (nt.Signature != IMAGE_NT_SIGNATURE || nt.OptionalHeader.Magic != IMAGE_NT_OPTIONAL_HDR64_MAGIC) {
+        std::cerr << "[PROCESS] Invalid NT headers for module: " << module_name << ".\n";
+        return false;
+    }
+
+    const size_t image_size = nt.OptionalHeader.SizeOfImage;
+    auto image_buffer = std::make_unique<uint8_t[]>(image_size);
+
+    this->read(base_address, image_buffer.get(), image_size);
+    auto section_header = reinterpret_cast<PIMAGE_SECTION_HEADER>(image_buffer.get() + dos.e_lfanew + FIELD_OFFSET(IMAGE_NT_HEADERS64, OptionalHeader) + nt.FileHeader.SizeOfOptionalHeader);
+
+    for (size_t i = 0; i < nt.FileHeader.NumberOfSections; i++, section_header++) {
+        section_header->PointerToRawData = section_header->VirtualAddress;
+        section_header->SizeOfRawData = section_header->Misc.VirtualSize;
+    }
+
+    HANDLE file_handle = CreateFileW(std::wstring(path.begin(), path.end()).c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_COMPRESSED, NULL);
+    if (file_handle == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+
+    DWORD written = 0;
+    BOOL success = WriteFile(file_handle, image_buffer.get(), static_cast<DWORD>(image_size), &written, nullptr);
+    CloseHandle(file_handle);
+
+    if (!success || written != image_size) {
+        std::cerr << "[PROCESS] Failed to write dump for module: " << module_name << ".\n";
+        return false;
+    }
+
+    return true;
+}
+
 std::string PROCESS::get_path(const std::string& module_name) const {
     PVMMDLL_MAP_MODULEENTRY module_entry;
 
@@ -246,7 +303,7 @@ bool PROCESS::add_write_scatter(VMMDLL_SCATTER_HANDLE scatter_handle, uint64_t a
 
 bool PROCESS::execute_scatter(VMMDLL_SCATTER_HANDLE scatter_handle, DWORD process_id) const {
     DWORD target_process_id = (process_id != 0) ? process_id : this->process_id;
-    
+
     bool success = true;
 
     auto it = this->scatter_counts.find(scatter_handle);

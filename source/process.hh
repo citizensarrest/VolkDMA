@@ -7,6 +7,7 @@ class PROCESS {
 public:
     PROCESS(DMA& dma, const std::string& process_name);
     uint64_t get_base_address(const std::string& module_name) const;
+    bool dump_module(const std::string& module_name, const std::string& path) const;
     std::string get_path(const std::string& module_name) const;
     std::vector<std::string> get_modules() const;
     bool fix_cr3(const std::string& process_name);
