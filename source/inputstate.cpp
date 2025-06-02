@@ -17,16 +17,51 @@ INPUTSTATE::INPUTSTATE(DMA& dma) : dma(dma) {
     }
     std::cout << "[INPUTSTATE] Winlogon.exe process ID: " << this->windows_logon_process_id << "\n";
 
+    std::vector<DWORD> csrss_ids = this->dma.get_process_id_list("csrss.exe");
+
+    for (DWORD pid : csrss_ids) {
+        PVMMDLL_MAP_EAT eat_map = nullptr;
+        bool result = VMMDLL_Map_GetEATU(this->dma.handle, pid | VMMDLL_PID_PROCESS_WITH_KERNELMEMORY, const_cast<LPSTR>("win32kbase.sys"), &eat_map);
+
+        if (!result || !eat_map) {
+            std::cerr << "[INPUTSTATE] Failed to get EAT for PID " << pid << "\n";
+            continue;
+        }
+
+        if (eat_map->dwVersion != VMMDLL_MAP_EAT_VERSION) {
+            std::cerr << "[INPUTSTATE] EAT version mismatch for PID " << pid << ": got " << eat_map->dwVersion << "\n";
+            VMMDLL_MemFree(eat_map);
+            continue;
+        }
+
+        bool found = false;
+        for (DWORD i = 0; i < eat_map->cMap; ++i) {
+            auto& entry = eat_map->pMap[i];
+            if (entry.uszFunction) {
+                std::string func_name = entry.uszFunction;
+                if (func_name == "gptCursorAsync") {
+                    std::cout << "[INPUTSTATE] Found gptCursorAsync export at VA: 0x" << std::hex << entry.vaFunction << std::dec << "\n";
+                    CURSOR position = dma.read<CURSOR>(entry.vaFunction, pid);
+                    std::cout << "[INPUTSTATE] Mouse Position - X: " << position.x << ", Y: " << position.y << "\n";
+
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        VMMDLL_MemFree(eat_map);
+    }
+
     if (windows_version > 22000) {
-        std::vector<DWORD> process_ids = this->dma.get_process_id_list("csrss.exe");
-        if (process_ids.empty()) {
+        if (csrss_ids.empty()) {
             std::cerr << "[INPUTSTATE] No csrss.exe processes found.\n";
         }
         else {
-            std::cout << "[INPUTSTATE] Found " << process_ids.size() << " csrss.exe processes.\n";
+            std::cout << "[INPUTSTATE] Found " << csrss_ids.size() << " csrss.exe processes.\n";
         }
 
-        for (DWORD process_id : process_ids) {
+        for (DWORD process_id : csrss_ids) {
             std::cout << "[INPUTSTATE] Processing csrss.exe with PID: " << process_id << "\n";
 
             PVMMDLL_MAP_MODULEENTRY win32k_module_info;
@@ -121,6 +156,10 @@ INPUTSTATE::INPUTSTATE(DMA& dma) : dma(dma) {
     else {
         std::cout << "[INPUTSTATE] Successfully initialized with async_key_state: 0x" << std::hex << this->async_key_state << std::dec << "\n";
     }
+}
+
+CURSOR INPUTSTATE::get_cursor_position() {
+    return this->dma.read<CURSOR>(this->async_cursor, this->cursor_process_id);
 }
 
 void INPUTSTATE::read_bitmap() {

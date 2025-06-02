@@ -3,9 +3,15 @@
 #include <unordered_map>
 #include "dma.hh"
 
+struct CURSOR {
+    int32_t x;
+    int32_t y;
+};
+
 class INPUTSTATE {
 public:
 	INPUTSTATE(DMA& dma);
+    CURSOR get_cursor_position();
 	void read_bitmap();
 	bool is_key_down(uint32_t virtual_key_code);
 	void print_down_keys();
@@ -170,11 +176,12 @@ public:
     };
 
 private:
-	DMA& dma;
-	
-	DWORD windows_logon_process_id = 0;
-	uint64_t async_key_state = 0;
-	uint8_t state_bitmap[64] = {};
+    DMA& dma;
+    DWORD cursor_process_id = 0;
+    uint64_t async_cursor = 0;
+    DWORD windows_logon_process_id = 0;
+    uint64_t async_key_state = 0;
+    uint8_t state_bitmap[64] = {};
 
 	enum class RegistryType {
 		sz = REG_SZ,
