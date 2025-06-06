@@ -16,7 +16,7 @@ public:
 	bool is_key_down(uint32_t virtual_key_code);
 	void print_down_keys();
 
-    inline static const std::vector<std::pair<int, std::string>> inputs = {
+    inline static const std::vector<std::pair<int, std::string_view>> inputs = {
         {0x01, "Left Mouse Button"},
         {0x02, "Right Mouse Button"},
         {0x03, "Control-break Processing"},

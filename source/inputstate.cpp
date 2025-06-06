@@ -181,7 +181,7 @@ void INPUTSTATE::print_down_keys() {
 		int bit_offset = (vk_code * 2) % 8;
 
 		if (this->state_bitmap[byte_index] & (1 << bit_offset)) {
-			printf("Key: %s is down\n", key_name.c_str());
+			printf("Key: %s is down\n", key_name.data());
 		}
 	}
 }
