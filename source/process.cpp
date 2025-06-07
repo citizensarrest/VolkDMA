@@ -112,7 +112,7 @@ bool PROCESS::fix_cr3(const std::string& process_name) {
 
     bool result = VMMDLL_Map_GetModuleFromNameU(this->dma.handle, this->process_id, process_name.c_str(), &module_entry, NULL);
     if (result) {
-        return true;
+        //return true;
     }
 
     if (!VMMDLL_InitializePlugins(this->dma.handle)) {
