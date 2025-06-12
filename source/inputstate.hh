@@ -1,22 +1,24 @@
 #pragma once
 
-#include <unordered_map>
+#include <array>
 #include "dma.hh"
 
-struct CURSOR {
-    int32_t x;
-    int32_t y;
-};
-
-class INPUTSTATE {
+class InputState {
 public:
-	INPUTSTATE(DMA& dma);
-    CURSOR get_cursor_position();
-	void read_bitmap();
-	bool is_key_down(uint32_t virtual_key_code);
-	void print_down_keys();
+    explicit InputState(const DMA& dma);
 
-    inline static const std::vector<std::pair<int, std::string_view>> inputs = {
+    [[nodiscard]] POINT get_cursor_position() const;
+
+    void read_bitmap();
+    [[nodiscard]] bool is_key_down(uint8_t virtual_key_code) const;
+    void print_down_keys() const;
+
+    struct VirtualKey {
+        uint8_t code;
+        std::string_view name;
+    };
+
+    inline static constexpr std::array<VirtualKey, 156> virtual_keys = {{
         {0x01, "Left Mouse Button"},
         {0x02, "Right Mouse Button"},
         {0x03, "Control-break Processing"},
@@ -173,20 +175,20 @@ public:
         {0xDD, "Right Bracket"},
         {0xDE, "Single Quote"},
         {0xFF, "System Quirk (often Pause or Print Screen)"},
-    };
+    }};
 
 private:
-    DMA& dma;
-    DWORD cursor_process_id = 0;
-    uint64_t async_cursor = 0;
-    DWORD windows_logon_process_id = 0;
-    uint64_t async_key_state = 0;
-    uint8_t state_bitmap[64] = {};
+    const DMA& dma_;
 
-	enum class RegistryType {
-		sz = REG_SZ,
-		dword = REG_DWORD,
-	};
+    uint64_t windows_version_build_ = 0;
 
-	std::string query_registry_value(const char* path, RegistryType type);
+    DWORD gptCursorAsync_process_id_ = 0;
+    uint64_t gptCursorAsync_address_ = 0;
+
+    DWORD winlogon_process_id_ = 0;
+    uint64_t gafAsyncKeyState_address_ = 0;
+    std::array<uint8_t, 64> state_bitmap_{};
+
+    [[nodiscard]] bool retrieve_gafAsyncKeyState(const std::vector<DWORD>& csrss_process_ids);
+    [[nodiscard]] bool retrieve_gptCursorAsync(const std::vector<DWORD>& csrss_process_ids);
 };

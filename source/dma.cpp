@@ -35,7 +35,7 @@ DMA::~DMA() {
     }
 }
 
-DWORD DMA::get_process_id(const std::string& process_name) {
+DWORD DMA::get_process_id(const std::string& process_name) const {
     DWORD process_id = 0;
 
     if (!VMMDLL_PidGetFromName(this->handle, process_name.c_str(), &process_id) || process_id == 0) {
@@ -45,7 +45,7 @@ DWORD DMA::get_process_id(const std::string& process_name) {
     return process_id;
 }
 
-std::vector<DWORD> DMA::get_process_id_list(const std::string& process_name) {
+std::vector<DWORD> DMA::get_process_id_list(const std::string& process_name) const {
     std::vector<DWORD> list = { };
     PVMMDLL_PROCESS_INFORMATION process_info = NULL;
     DWORD total_processes = 0;
@@ -65,7 +65,7 @@ std::vector<DWORD> DMA::get_process_id_list(const std::string& process_name) {
     return list;
 }
 
-uint64_t DMA::find_signature(const char* signature, uint64_t range_start, uint64_t range_end, DWORD process_id) {
+uint64_t DMA::find_signature(const char* signature, uint64_t range_start, uint64_t range_end, DWORD process_id) const {
     if (!signature || !*signature || range_start >= range_end) {
         return 0;
     }
@@ -177,7 +177,7 @@ bool DMA::clean_fpga() {
     return true;
 }
 
-uint8_t DMA::get_byte(const char* hex) {
+uint8_t DMA::get_byte(const char* hex) const {
     char byte[3] = { hex[0], hex[1], 0 };
     return static_cast<uint8_t>(strtoul(byte, nullptr, 16));
 }
