@@ -110,9 +110,8 @@ std::vector<std::string> PROCESS::get_modules() const {
 bool PROCESS::fix_cr3(const std::string& process_name) {
     PVMMDLL_MAP_MODULEENTRY module_entry;
 
-    bool result = VMMDLL_Map_GetModuleFromNameU(this->dma.handle, this->process_id, process_name.c_str(), &module_entry, NULL);
-    if (result) {
-        //return true;
+    if (VMMDLL_Map_GetModuleFromNameU(this->dma.handle, this->process_id, process_name.c_str(), &module_entry, NULL)) {
+        return true;
     }
 
     if (!VMMDLL_InitializePlugins(this->dma.handle)) {
@@ -137,8 +136,7 @@ bool PROCESS::fix_cr3(const std::string& process_name) {
     VfsFileList.pfnAddDirectory = nullptr;
     VfsFileList.pfnAddFile = this->cb_add_file;
 
-    result = VMMDLL_VfsListU(this->dma.handle, (LPSTR)"\\misc\\procinfo\\", &VfsFileList);
-    if (!result)
+    if (!VMMDLL_VfsListU(this->dma.handle, (LPSTR)"\\misc\\procinfo\\", &VfsFileList))
         return false;
 
     const size_t buffer_size = PROCESS::cb_size;
@@ -160,14 +158,13 @@ bool PROCESS::fix_cr3(const std::string& process_name) {
             if (info.process_id == 0 || process_name.find(info.name) != std::string::npos) {
                 possible_dtbs.push_back(info.dtb);
             }
-        }
+    }
     }
 
     for (size_t i = 0; i < possible_dtbs.size(); i++) {
         auto dtb = possible_dtbs[i];
         VMMDLL_ConfigSet(this->dma.handle, VMMDLL_OPT_PROCESS_DTB | this->process_id, dtb);
-        result = VMMDLL_Map_GetModuleFromNameU(this->dma.handle, this->process_id, process_name.c_str(), &module_entry, NULL);
-        if (result) {
+        if (VMMDLL_Map_GetModuleFromNameU(this->dma.handle, this->process_id, process_name.c_str(), &module_entry, NULL)) {
             static ULONG64 pml4_first[512];
             static ULONG64 pml4_second[512];
             DWORD read_size;
