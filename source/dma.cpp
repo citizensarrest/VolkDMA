@@ -6,11 +6,9 @@ DMA::DMA(bool use_memory_map) {
     
     std::string path;
     if (use_memory_map) {
-        auto current_path = std::filesystem::current_path();
-        path = (current_path / "memory_map.txt").string();
+        path = (std::filesystem::current_path() / "memory_map.txt").string();
 
-        bool dumped = std::filesystem::exists(path) || this->dump_memory_map();
-        if (!dumped) {
+        if (!std::filesystem::exists(path) && !dump_memory_map()) {
             std::cerr << "[DMA] Could not dump memory map.\n";
         }
         else {
@@ -19,8 +17,7 @@ DMA::DMA(bool use_memory_map) {
         }
     }
 
-    this->handle = VMMDLL_Initialize(argc, args);
-    if (!this->handle) {
+    if (!(handle = VMMDLL_Initialize(argc, args))) {
         std::cerr << "[DMA] Failed to initialize.\n";
         return;
     }
@@ -35,7 +32,7 @@ DMA::~DMA() {
     }
 }
 
-DWORD DMA::get_process_id(const std::string& process_name) const {
+[[nodiscard]] DWORD DMA::get_process_id(const std::string& process_name) const {
     DWORD process_id = 0;
 
     if (!VMMDLL_PidGetFromName(this->handle, process_name.c_str(), &process_id) || process_id == 0) {
@@ -45,7 +42,7 @@ DWORD DMA::get_process_id(const std::string& process_name) const {
     return process_id;
 }
 
-std::vector<DWORD> DMA::get_process_id_list(const std::string& process_name) const {
+[[nodiscard]] std::vector<DWORD> DMA::get_process_id_list(const std::string& process_name) const {
     std::vector<DWORD> list = { };
     PVMMDLL_PROCESS_INFORMATION process_info = NULL;
     DWORD total_processes = 0;
@@ -65,7 +62,7 @@ std::vector<DWORD> DMA::get_process_id_list(const std::string& process_name) con
     return list;
 }
 
-uint64_t DMA::find_signature(const char* signature, uint64_t range_start, uint64_t range_end, DWORD process_id) const {
+[[nodiscard]] uint64_t DMA::find_signature(const char* signature, uint64_t range_start, uint64_t range_end, DWORD process_id) const {
     if (!signature || !*signature || range_start >= range_end) {
         return 0;
     }
@@ -161,9 +158,8 @@ bool DMA::clean_fpga() {
     }
 
     if ((version_major >= 4) && ((version_major >= 5) || (version_minor >= 7))) {
-        HANDLE lc_handle;
-        LC_CONFIG config = { .dwVersion = LC_CONFIG_VERSION, .szDevice = "existing" };
-        lc_handle = LcCreate(&config);
+        LC_CONFIG config{ .dwVersion = LC_CONFIG_VERSION, .szDevice = "existing" };
+        HANDLE lc_handle = LcCreate(&config);
 
         if (!lc_handle) {
             std::cerr << "[DMA] Failed to create FPGA device handle. Attempting to continue initializing.\n";
@@ -177,7 +173,7 @@ bool DMA::clean_fpga() {
     return true;
 }
 
-uint8_t DMA::get_byte(const char* hex) const {
+[[nodiscard]] uint8_t DMA::get_byte(const char* hex) const {
     char byte[3] = { hex[0], hex[1], 0 };
     return static_cast<uint8_t>(strtoul(byte, nullptr, 16));
 }

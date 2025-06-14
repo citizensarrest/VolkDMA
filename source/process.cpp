@@ -1,23 +1,21 @@
 #include "process.hh"
 
-PROCESS::PROCESS(DMA& dma, const std::string& process_name) : dma(dma) {
-    this->process_id = this->dma.get_process_id(process_name);
-}
+Process::Process(DMA& dma, const std::string& process_name) : dma(dma), process_id(dma.get_process_id(process_name)) {}
 
-uint64_t PROCESS::get_base_address(const std::string& module_name) const {
-    PVMMDLL_MAP_MODULEENTRY module_entry;
+[[nodiscard]] uint64_t Process::get_base_address(const std::string& module_name) const {
+    PVMMDLL_MAP_MODULEENTRY module_entry = nullptr;
 
     if (!VMMDLL_Map_GetModuleFromNameU(this->dma.handle, this->process_id, module_name.c_str(), &module_entry, VMMDLL_MODULE_FLAG_NORMAL)) {
         std::cerr << "[PROCESS] Failed to find base address for module: " + module_name << ".\n";
         return 0;
     }
 
-    uint64_t base = static_cast<uint64_t>(module_entry->vaBase);
+    const uint64_t base = static_cast<uint64_t>(module_entry->vaBase);
     VMMDLL_MemFree(module_entry);
     return base;
 }
 
-bool PROCESS::dump_module(const std::string& module_name, const std::string& path) const {
+bool Process::dump_module(const std::string& module_name, const std::string& path) const {
     const uint64_t base_address = this->get_base_address(module_name);
     if (!base_address) {
         std::cerr << "[PROCESS] Failed to get base address for module: " << module_name << ".\n";
@@ -74,7 +72,7 @@ bool PROCESS::dump_module(const std::string& module_name, const std::string& pat
     return true;
 }
 
-std::string PROCESS::get_path(const std::string& module_name) const {
+[[nodiscard]] std::string Process::get_path(const std::string& module_name) const {
     PVMMDLL_MAP_MODULEENTRY module_entry;
 
     if (!VMMDLL_Map_GetModuleFromNameU(this->dma.handle, this->process_id, module_name.c_str(), &module_entry, VMMDLL_MODULE_FLAG_NORMAL)) {
@@ -87,11 +85,13 @@ std::string PROCESS::get_path(const std::string& module_name) const {
     return path;
 }
 
-std::vector<std::string> PROCESS::get_modules() const {
+[[nodiscard]] std::vector<std::string> Process::get_modules(DWORD process_id) const {
+    DWORD target_process_id = (process_id != 0) ? process_id : this->process_id;
+
     std::vector<std::string> modules;
     PVMMDLL_MAP_MODULE module_map = nullptr;
 
-    if (!VMMDLL_Map_GetModuleU(this->dma.handle, this->process_id, &module_map, VMMDLL_MODULE_FLAG_NORMAL)) {
+    if (!VMMDLL_Map_GetModuleU(this->dma.handle, target_process_id, &module_map, VMMDLL_MODULE_FLAG_NORMAL)) {
         std::cerr << "[PROCESS] Failed to get module list.\n";
         return modules;
     }
@@ -107,10 +107,11 @@ std::vector<std::string> PROCESS::get_modules() const {
     return modules;
 }
 
-bool PROCESS::fix_cr3(const std::string& process_name) {
+bool Process::fix_cr3(const std::string& process_name) {
     PVMMDLL_MAP_MODULEENTRY module_entry;
 
     if (VMMDLL_Map_GetModuleFromNameU(this->dma.handle, this->process_id, process_name.c_str(), &module_entry, NULL)) {
+        std::cerr << "[PROCESS] CR3 fix not needed.\n";
         return true;
     }
 
@@ -139,7 +140,7 @@ bool PROCESS::fix_cr3(const std::string& process_name) {
     if (!VMMDLL_VfsListU(this->dma.handle, (LPSTR)"\\misc\\procinfo\\", &VfsFileList))
         return false;
 
-    const size_t buffer_size = PROCESS::cb_size;
+    const size_t buffer_size = cb_size;
     std::unique_ptr<BYTE[]> bytes(new BYTE[buffer_size]);
     DWORD j = 0;
     auto nt = VMMDLL_VfsReadW(this->dma.handle, (LPWSTR)L"\\misc\\procinfo\\dtb.txt", bytes.get(), buffer_size - 1, &j, 0);
@@ -158,11 +159,10 @@ bool PROCESS::fix_cr3(const std::string& process_name) {
             if (info.process_id == 0 || process_name.find(info.name) != std::string::npos) {
                 possible_dtbs.push_back(info.dtb);
             }
-    }
+        }
     }
 
-    for (size_t i = 0; i < possible_dtbs.size(); i++) {
-        auto dtb = possible_dtbs[i];
+    for (const auto& dtb : possible_dtbs) {
         VMMDLL_ConfigSet(this->dma.handle, VMMDLL_OPT_PROCESS_DTB | this->process_id, dtb);
         if (VMMDLL_Map_GetModuleFromNameU(this->dma.handle, this->process_id, process_name.c_str(), &module_entry, NULL)) {
             static ULONG64 pml4_first[512];
@@ -171,24 +171,18 @@ bool PROCESS::fix_cr3(const std::string& process_name) {
 
             if (!VMMDLL_MemReadEx(this->dma.handle, -1, dtb, reinterpret_cast<PBYTE>(pml4_first), sizeof(pml4_first), &read_size,
                 VMMDLL_FLAG_NOCACHE | VMMDLL_FLAG_NOPAGING | VMMDLL_FLAG_ZEROPAD_ON_FAIL | VMMDLL_FLAG_NOPAGING_IO)) {
-#ifdef _DEBUG
                 std::cerr << "[PROCESS] Failed to read PML4 the first time.\n";
-#endif
                 return false;
             }
 
             if (!VMMDLL_MemReadEx(this->dma.handle, -1, dtb, reinterpret_cast<PBYTE>(pml4_second), sizeof(pml4_second), &read_size,
                 VMMDLL_FLAG_NOCACHE | VMMDLL_FLAG_NOPAGING | VMMDLL_FLAG_ZEROPAD_ON_FAIL | VMMDLL_FLAG_NOPAGING_IO)) {
-#ifdef _DEBUG
                 std::cerr << "[PROCESS] Failed to read PML4 the second time.\n";
-#endif
                 return false;
             }
 
             if (memcmp(pml4_first, pml4_second, sizeof(pml4_first)) != 0) {
-#ifdef _DEBUG
                 std::cerr << "[PROCESS] PML4 mismatch between reads.\n";
-#endif
                 return false;
             }
 
@@ -203,11 +197,7 @@ bool PROCESS::fix_cr3(const std::string& process_name) {
     return false;
 }
 
-bool PROCESS::is_valid_address(uint64_t address) const {
-    return address >= PROCESS::minimum_valid_address;
-}
-
-bool PROCESS::virtual_to_physical(uint64_t virtual_address, uint64_t& physical_address) const {
+bool Process::virtual_to_physical(uint64_t virtual_address, uint64_t& physical_address) const {
     if (!this->is_valid_address(virtual_address)) {
         return false;
     }
@@ -215,7 +205,7 @@ bool PROCESS::virtual_to_physical(uint64_t virtual_address, uint64_t& physical_a
     return VMMDLL_VirtualToPhysical(this->dma.handle, virtual_address, &physical_address);
 }
 
-bool PROCESS::read(uint64_t address, void* buffer, size_t size) const {
+bool Process::read(uint64_t address, void* buffer, size_t size) const {
     if (!this->is_valid_address(address)) {
         return false;
     }
@@ -229,7 +219,7 @@ bool PROCESS::read(uint64_t address, void* buffer, size_t size) const {
     return read_size == size;
 }
 
-uint64_t PROCESS::read_chain(uint64_t base, const std::vector<uint64_t>& offsets) const {
+[[nodiscard]] uint64_t Process::read_chain(uint64_t base, const std::vector<uint64_t>& offsets) const {
     uint64_t result = this->read<uint64_t>(base + offsets.at(0));
     for (size_t i = 1; i < offsets.size(); ++i) {
         result = this->read<uint64_t>(result + offsets.at(i));
@@ -237,7 +227,7 @@ uint64_t PROCESS::read_chain(uint64_t base, const std::vector<uint64_t>& offsets
     return result;
 }
 
-bool PROCESS::write(uint64_t address, void* buffer, size_t size, DWORD process_id) const {
+bool Process::write(uint64_t address, void* buffer, size_t size, DWORD process_id) const {
     if (!this->is_valid_address(address)) {
         return false;
     }
@@ -253,24 +243,23 @@ bool PROCESS::write(uint64_t address, void* buffer, size_t size, DWORD process_i
     return true;
 }
 
-VMMDLL_SCATTER_HANDLE PROCESS::create_scatter(DWORD process_id) const {
+[[nodiscard]] VMMDLL_SCATTER_HANDLE Process::create_scatter(DWORD process_id) const {
     DWORD target_process_id = (process_id != 0) ? process_id : this->process_id;
-    VMMDLL_SCATTER_HANDLE scatter_handle = VMMDLL_Scatter_Initialize(this->dma.handle, target_process_id, PROCESS::scatter_flags);
+    VMMDLL_SCATTER_HANDLE scatter_handle = VMMDLL_Scatter_Initialize(this->dma.handle, target_process_id, Process::scatter_flags);
     if (!scatter_handle) {
         std::cerr << "[PROCESS] Failed to create scatter handle.\n";
     }
     return scatter_handle;
 }
 
-
-void PROCESS::close_scatter(VMMDLL_SCATTER_HANDLE scatter_handle) const {
+void Process::close_scatter(VMMDLL_SCATTER_HANDLE scatter_handle) const {
     if (scatter_handle) {
         VMMDLL_Scatter_CloseHandle(scatter_handle);
         this->scatter_counts.erase(scatter_handle);
     }
 }
 
-bool PROCESS::add_read_scatter(VMMDLL_SCATTER_HANDLE scatter_handle, uint64_t address, void* buffer, size_t size) const {
+bool Process::add_read_scatter(VMMDLL_SCATTER_HANDLE scatter_handle, uint64_t address, void* buffer, size_t size) const {
     if (!this->is_valid_address(address)) {
         return false;
     }
@@ -284,7 +273,7 @@ bool PROCESS::add_read_scatter(VMMDLL_SCATTER_HANDLE scatter_handle, uint64_t ad
     return true;
 }
 
-bool PROCESS::add_write_scatter(VMMDLL_SCATTER_HANDLE scatter_handle, uint64_t address, void* buffer, size_t size) const {
+bool Process::add_write_scatter(VMMDLL_SCATTER_HANDLE scatter_handle, uint64_t address, void* buffer, size_t size) const {
     if (!this->is_valid_address(address)) {
         return false;
     }
@@ -298,32 +287,31 @@ bool PROCESS::add_write_scatter(VMMDLL_SCATTER_HANDLE scatter_handle, uint64_t a
     return true;
 }
 
-bool PROCESS::execute_scatter(VMMDLL_SCATTER_HANDLE scatter_handle, DWORD process_id) const {
-    DWORD target_process_id = (process_id != 0) ? process_id : this->process_id;
-
-    bool success = true;
-
+bool Process::execute_scatter(VMMDLL_SCATTER_HANDLE scatter_handle, DWORD process_id) const {
     auto it = this->scatter_counts.find(scatter_handle);
     if (it == this->scatter_counts.end() || it->second == 0) {
-        return success;
+        return true;
     }
+
+    DWORD target_process_id = (process_id != 0) ? process_id : this->process_id;
+    bool success = true;
 
     if (!VMMDLL_Scatter_Execute(scatter_handle)) {
         std::cerr << "[PROCESS] Failed to execute scatter.\n";
         success = false;
     }
 
-    if (!VMMDLL_Scatter_Clear(scatter_handle, target_process_id, PROCESS::scatter_flags)) {
+    if (!VMMDLL_Scatter_Clear(scatter_handle, target_process_id, scatter_flags)) {
         std::cerr << "[PROCESS] Failed to clear scatter.\n";
         success = false;
     }
-    this->scatter_counts[scatter_handle] = 0;
+
+    it->second = 0;
 
     return success;
 }
 
-uint64_t PROCESS::cb_size = 0x80000;
-VOID PROCESS::cb_add_file(_Inout_ HANDLE h, _In_ LPCSTR uszName, _In_ ULONG64 cb, _In_opt_ PVMMDLL_VFS_FILELIST_EXINFO pExInfo) {
+VOID Process::cb_add_file(_Inout_ HANDLE h, _In_ LPCSTR uszName, _In_ ULONG64 cb, _In_opt_ PVMMDLL_VFS_FILELIST_EXINFO pExInfo) {
     if (strcmp(uszName, "dtb.txt") == 0)
-        PROCESS::cb_size = cb;
+        cb_size = cb;
 }
