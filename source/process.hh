@@ -7,6 +7,7 @@ class Process {
 public:
     Process(DMA& dma, const std::string& process_name);
     [[nodiscard]] uint64_t get_base_address(const std::string& module_name) const;
+    [[nodiscard]] size_t get_size(const std::string& module_name) const;
     bool dump_module(const std::string& module_name, const std::string& path) const;
     [[nodiscard]] std::string get_path(const std::string& module_name) const;
     [[nodiscard]] std::vector<std::string> get_modules(DWORD process_id = 0) const;

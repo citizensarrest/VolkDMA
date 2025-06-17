@@ -6,13 +6,26 @@ Process::Process(DMA& dma, const std::string& process_name) : dma(dma), process_
     PVMMDLL_MAP_MODULEENTRY module_entry = nullptr;
 
     if (!VMMDLL_Map_GetModuleFromNameU(this->dma.handle, this->process_id, module_name.c_str(), &module_entry, VMMDLL_MODULE_FLAG_NORMAL)) {
-        std::cerr << "[PROCESS] Failed to find base address for module: " + module_name << ".\n";
+        std::cerr << "[PROCESS] Failed to find base address of module: " + module_name << ".\n";
         return 0;
     }
 
     const uint64_t base = static_cast<uint64_t>(module_entry->vaBase);
     VMMDLL_MemFree(module_entry);
     return base;
+}
+
+[[nodiscard]] size_t Process::get_size(const std::string& module_name) const {
+    PVMMDLL_MAP_MODULEENTRY module_entry = nullptr;
+
+    if (!VMMDLL_Map_GetModuleFromNameU(this->dma.handle, this->process_id, module_name.c_str(), &module_entry, VMMDLL_MODULE_FLAG_NORMAL)) {
+        std::cerr << "[PROCESS] Failed to find size of module: " + module_name << ".\n";
+        return 0;
+    }
+
+    const size_t size = static_cast<size_t>(module_entry->cbImageSize);
+    VMMDLL_MemFree(module_entry);
+    return size;
 }
 
 bool Process::dump_module(const std::string& module_name, const std::string& path) const {
