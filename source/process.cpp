@@ -1,12 +1,32 @@
 #include "process.hh"
 
+#include <iostream>
+#include <filesystem>
+#include <memory>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <cstring>
+#include <windows.h>
+
+#include "dma.hh"
+#include "vmm/vmmdll.h"
+
+static constexpr DWORD scatter_flags = VMMDLL_FLAG_NOCACHE | VMMDLL_FLAG_ZEROPAD_ON_FAIL | VMMDLL_FLAG_SCATTER_PREPAREEX_NOMEMZERO;
+
+static uint64_t cb_size = 0x80000;
+VOID cb_add_file(_Inout_ HANDLE h, _In_ LPCSTR uszName, _In_ ULONG64 cb, _In_opt_ PVMMDLL_VFS_FILELIST_EXINFO pExInfo) {
+    if (strcmp(uszName, "dtb.txt") == 0)
+        cb_size = cb;
+}
+
 Process::Process(DMA& dma, const std::string& process_name) : dma(dma), process_id(dma.get_process_id(process_name)) {}
 
-[[nodiscard]] uint64_t Process::get_base_address(const std::string& module_name) const {
+uint64_t Process::get_base_address(const std::string& module_name) const {
     PVMMDLL_MAP_MODULEENTRY module_entry = nullptr;
 
     if (!VMMDLL_Map_GetModuleFromNameU(this->dma.handle, this->process_id, module_name.c_str(), &module_entry, VMMDLL_MODULE_FLAG_NORMAL)) {
-        std::cerr << "[PROCESS] Failed to find base address of module: " + module_name << ".\n";
+        std::cerr << "[PROCESS] Failed to find base address of module: " << module_name << ".\n";
         return 0;
     }
 
@@ -15,11 +35,11 @@ Process::Process(DMA& dma, const std::string& process_name) : dma(dma), process_
     return base;
 }
 
-[[nodiscard]] size_t Process::get_size(const std::string& module_name) const {
+size_t Process::get_size(const std::string& module_name) const {
     PVMMDLL_MAP_MODULEENTRY module_entry = nullptr;
 
     if (!VMMDLL_Map_GetModuleFromNameU(this->dma.handle, this->process_id, module_name.c_str(), &module_entry, VMMDLL_MODULE_FLAG_NORMAL)) {
-        std::cerr << "[PROCESS] Failed to find size of module: " + module_name << ".\n";
+        std::cerr << "[PROCESS] Failed to find size of module: " << module_name << ".\n";
         return 0;
     }
 
@@ -85,11 +105,11 @@ bool Process::dump_module(const std::string& module_name, const std::string& pat
     return true;
 }
 
-[[nodiscard]] std::string Process::get_path(const std::string& module_name) const {
+std::string Process::get_path(const std::string& module_name) const {
     PVMMDLL_MAP_MODULEENTRY module_entry;
 
     if (!VMMDLL_Map_GetModuleFromNameU(this->dma.handle, this->process_id, module_name.c_str(), &module_entry, VMMDLL_MODULE_FLAG_NORMAL)) {
-        std::cerr << "[PROCESS] Failed to find path for module: " + module_name << ".\n";
+        std::cerr << "[PROCESS] Failed to find path for module: " << module_name << ".\n";
         return "";
     }
 
@@ -98,7 +118,7 @@ bool Process::dump_module(const std::string& module_name, const std::string& pat
     return path;
 }
 
-[[nodiscard]] std::vector<std::string> Process::get_modules(DWORD process_id) const {
+std::vector<std::string> Process::get_modules(DWORD process_id) const {
     DWORD target_process_id = (process_id != 0) ? process_id : this->process_id;
 
     std::vector<std::string> modules;
@@ -125,6 +145,7 @@ bool Process::fix_cr3(const std::string& process_name) {
 
     if (VMMDLL_Map_GetModuleFromNameU(this->dma.handle, this->process_id, process_name.c_str(), &module_entry, NULL)) {
         std::cerr << "[PROCESS] CR3 fix not needed.\n";
+        VMMDLL_MemFree(module_entry);
         return true;
     }
 
@@ -148,7 +169,7 @@ bool Process::fix_cr3(const std::string& process_name) {
     VfsFileList.dwVersion = VMMDLL_VFS_FILELIST_VERSION;
     VfsFileList.h = 0;
     VfsFileList.pfnAddDirectory = nullptr;
-    VfsFileList.pfnAddFile = this->cb_add_file;
+    VfsFileList.pfnAddFile = cb_add_file;
 
     if (!VMMDLL_VfsListU(this->dma.handle, (LPSTR)"\\misc\\procinfo\\", &VfsFileList))
         return false;
@@ -166,11 +187,16 @@ bool Process::fix_cr3(const std::string& process_name) {
     std::string line;
 
     while (std::getline(iss, line)) {
-        Info info = {};
+        uint32_t index;
+        DWORD process_id;
+        uint64_t dtb;
+        uint64_t kernel_address;
+        std::string name;
+
         std::istringstream info_ss(line);
-        if (info_ss >> std::hex >> info.index >> std::dec >> info.process_id >> std::hex >> info.dtb >> info.kernel_address >> info.name) {
-            if (info.process_id == 0 || process_name.find(info.name) != std::string::npos) {
-                possible_dtbs.push_back(info.dtb);
+        if (info_ss >> std::hex >> index >> std::dec >> process_id >> std::hex >> dtb >> kernel_address >> name) {
+            if (process_id == 0 || process_name.find(name) != std::string::npos) {
+                possible_dtbs.push_back(dtb);
             }
         }
     }
@@ -178,6 +204,7 @@ bool Process::fix_cr3(const std::string& process_name) {
     for (const auto& dtb : possible_dtbs) {
         VMMDLL_ConfigSet(this->dma.handle, VMMDLL_OPT_PROCESS_DTB | this->process_id, dtb);
         if (VMMDLL_Map_GetModuleFromNameU(this->dma.handle, this->process_id, process_name.c_str(), &module_entry, NULL)) {
+            VMMDLL_MemFree(module_entry);
             static ULONG64 pml4_first[512];
             static ULONG64 pml4_second[512];
             DWORD read_size;
@@ -232,7 +259,7 @@ bool Process::read(uint64_t address, void* buffer, size_t size) const {
     return read_size == size;
 }
 
-[[nodiscard]] uint64_t Process::read_chain(uint64_t base, const std::vector<uint64_t>& offsets) const {
+uint64_t Process::read_chain(uint64_t base, const std::vector<uint64_t>& offsets) const {
     uint64_t result = this->read<uint64_t>(base + offsets.at(0));
     for (size_t i = 1; i < offsets.size(); ++i) {
         result = this->read<uint64_t>(result + offsets.at(i));
@@ -256,9 +283,9 @@ bool Process::write(uint64_t address, void* buffer, size_t size, DWORD process_i
     return true;
 }
 
-[[nodiscard]] VMMDLL_SCATTER_HANDLE Process::create_scatter(DWORD process_id) const {
+VMMDLL_SCATTER_HANDLE Process::create_scatter(DWORD process_id) const {
     DWORD target_process_id = (process_id != 0) ? process_id : this->process_id;
-    VMMDLL_SCATTER_HANDLE scatter_handle = VMMDLL_Scatter_Initialize(this->dma.handle, target_process_id, Process::scatter_flags);
+    VMMDLL_SCATTER_HANDLE scatter_handle = VMMDLL_Scatter_Initialize(this->dma.handle, target_process_id, scatter_flags);
     if (!scatter_handle) {
         std::cerr << "[PROCESS] Failed to create scatter handle.\n";
     }
@@ -322,9 +349,4 @@ bool Process::execute_scatter(VMMDLL_SCATTER_HANDLE scatter_handle, DWORD proces
     it->second = 0;
 
     return success;
-}
-
-VOID Process::cb_add_file(_Inout_ HANDLE h, _In_ LPCSTR uszName, _In_ ULONG64 cb, _In_opt_ PVMMDLL_VFS_FILELIST_EXINFO pExInfo) {
-    if (strcmp(uszName, "dtb.txt") == 0)
-        cb_size = cb;
 }

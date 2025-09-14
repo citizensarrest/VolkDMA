@@ -1,4 +1,27 @@
 #include "dma.hh"
+#include "inputstate.hh"
+#include "vmm/vmmdll.h"
+
+#include <iostream>
+#include <fstream>
+#include <filesystem>
+#include <sstream>
+#include <cstdlib> 
+
+template<typename T>
+T DMA::read(uint64_t address, DWORD process_id) const {
+    T rdbuf = {};
+    VMMDLL_MemReadEx(this->handle, process_id, address,
+        reinterpret_cast<PBYTE>(&rdbuf),
+        sizeof(T), nullptr,
+        VMMDLL_FLAG_NOCACHE | VMMDLL_FLAG_ZEROPAD_ON_FAIL);
+    return rdbuf;
+}
+
+template uint64_t DMA::read<uint64_t>(uint64_t, DWORD) const;
+template uint32_t DMA::read<uint32_t>(uint64_t, DWORD) const;
+template int DMA::read<int>(uint64_t, DWORD) const;
+template InputState::Point DMA::read<InputState::Point>(uint64_t, DWORD) const;
 
 DMA::DMA(bool use_memory_map) {
     LPCSTR args[8] = {"", "-device", "fpga://algo=0", "", "", "", "", ""};
@@ -28,11 +51,10 @@ DMA::DMA(bool use_memory_map) {
 DMA::~DMA() {
     if (this->handle) {
         VMMDLL_Close(this->handle);
-        this->handle = nullptr;
     }
 }
 
-[[nodiscard]] DWORD DMA::get_process_id(const std::string& process_name) const {
+DWORD DMA::get_process_id(const std::string& process_name) const {
     DWORD process_id = 0;
 
     if (!VMMDLL_PidGetFromName(this->handle, process_name.c_str(), &process_id) || process_id == 0) {
@@ -42,7 +64,7 @@ DMA::~DMA() {
     return process_id;
 }
 
-[[nodiscard]] std::vector<DWORD> DMA::get_process_id_list(const std::string& process_name) const {
+std::vector<DWORD> DMA::get_process_id_list(const std::string& process_name) const {
     std::vector<DWORD> list = { };
     PVMMDLL_PROCESS_INFORMATION process_info = NULL;
     DWORD total_processes = 0;
@@ -59,10 +81,11 @@ DMA::~DMA() {
         }
     }
 
+    VMMDLL_MemFree(process_info);
     return list;
 }
 
-[[nodiscard]] uint64_t DMA::find_signature(const char* signature, uint64_t range_start, uint64_t range_end, DWORD process_id) const {
+uint64_t DMA::find_signature(const char* signature, uint64_t range_start, uint64_t range_end, DWORD process_id) const {
     if (!signature || !*signature || range_start >= range_end) {
         return 0;
     }
@@ -77,12 +100,17 @@ DMA::~DMA() {
     const char* pat = signature;
     uint64_t first_match = 0;
 
+    auto get_byte = [](const char* hex) -> uint8_t {
+        char byte[3] = { hex[0], hex[1], 0 };
+        return static_cast<uint8_t>(std::strtoul(byte, nullptr, 16));
+    };
+
     for (uint64_t i = 0; i < size; i++) {
         if (*pat == '\0') {
             break;
         }
 
-        if (*pat == '?' || buffer[i] == this->get_byte(pat)) {
+        if (*pat == '?' || buffer[i] == get_byte(pat)) {
             if (!first_match) {
                 first_match = range_start + i;
             }
@@ -166,14 +194,10 @@ bool DMA::clean_fpga() {
             return false;
         }
 
-        LcCommand(lc_handle, LC_CMD_FPGA_CFGREGPCIE_MARKWR | 0x002, sizeof(this->abort_2), this->abort_2, NULL, NULL);
+        static const unsigned char abort_2[4] = { 0x10, 0x00, 0x10, 0x00 };
+        LcCommand(lc_handle, LC_CMD_FPGA_CFGREGPCIE_MARKWR | 0x002, sizeof(abort_2), const_cast<unsigned char*>(abort_2), NULL, NULL);
         LcClose(lc_handle);
     }
 
     return true;
-}
-
-[[nodiscard]] uint8_t DMA::get_byte(const char* hex) const {
-    char byte[3] = { hex[0], hex[1], 0 };
-    return static_cast<uint8_t>(strtoul(byte, nullptr, 16));
 }

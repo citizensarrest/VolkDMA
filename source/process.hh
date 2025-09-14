@@ -1,7 +1,12 @@
 #pragma once
 
+#include <string>
+#include <vector>
 #include <unordered_map>
-#include "dma.hh"
+
+class DMA;
+using VMMDLL_SCATTER_HANDLE = void*;
+using DWORD = unsigned long;
 
 class Process {
 public:
@@ -12,7 +17,7 @@ public:
     [[nodiscard]] std::string get_path(const std::string& module_name) const;
     [[nodiscard]] std::vector<std::string> get_modules(DWORD process_id = 0) const;
     bool fix_cr3(const std::string& process_name);
-    [[nodiscard]] inline constexpr bool is_valid_address(const uint64_t address) const { return address >= minimum_valid_address; }
+    [[nodiscard]] constexpr bool is_valid_address(const uint64_t address) const { return address >= 0x1000; }
     bool virtual_to_physical(uint64_t virtual_address, uint64_t& physical_address) const;
     bool read(uint64_t address, void* buffer, size_t size) const;
     [[nodiscard]] uint64_t read_chain(uint64_t base, const std::vector<uint64_t>& offsets) const;
@@ -56,21 +61,7 @@ public:
 
 private:
     const DMA& dma;
-    DWORD process_id;
-
-    struct Info {
-        uint32_t index;
-        DWORD process_id;
-        uint64_t dtb;
-        uint64_t kernel_address;
-        std::string name;
-    };
-
-    static constexpr uint64_t minimum_valid_address = 0x1000;
-
-    static constexpr DWORD scatter_flags = VMMDLL_FLAG_NOCACHE | VMMDLL_FLAG_ZEROPAD_ON_FAIL | VMMDLL_FLAG_SCATTER_PREPAREEX_NOMEMZERO;
+    const DWORD process_id;
+    
     mutable std::unordered_map<VMMDLL_SCATTER_HANDLE, int> scatter_counts;
-
-    inline static uint64_t cb_size = 0x80000;
-    static VOID cb_add_file(_Inout_ HANDLE h, _In_ LPCSTR uszName, _In_ ULONG64 cb, _In_opt_ PVMMDLL_VFS_FILELIST_EXINFO pExInfo);
 };

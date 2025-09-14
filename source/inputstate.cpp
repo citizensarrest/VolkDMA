@@ -1,4 +1,8 @@
 #include "inputstate.hh"
+#include "dma.hh"
+#include "vmm/vmmdll.h"
+
+#include <iostream>
 
 InputState::InputState(const DMA& dma) : dma_(dma) {
     const std::vector<DWORD> csrss_process_ids = dma_.get_process_id_list("csrss.exe");
@@ -23,7 +27,7 @@ InputState::InputState(const DMA& dma) : dma_(dma) {
     }
 }
 
-[[nodiscard]] bool InputState::retrieve_gafAsyncKeyState(const std::vector<DWORD>& csrss_process_ids) {
+bool InputState::retrieve_gafAsyncKeyState(const std::vector<DWORD>& csrss_process_ids) {
     winlogon_process_id_ = dma_.get_process_id("winlogon.exe");
     if (!winlogon_process_id_) {
         std::cerr << "[INPUTSTATE] Failed to get process ID for winlogon.exe.\n";
@@ -108,7 +112,7 @@ InputState::InputState(const DMA& dma) : dma_(dma) {
     return gafAsyncKeyState_address_ > 0x7FFFFFFFFFFF;
 }
 
-[[nodiscard]] bool InputState::retrieve_gptCursorAsync(const std::vector<DWORD>& csrss_process_ids) {
+bool InputState::retrieve_gptCursorAsync(const std::vector<DWORD>& csrss_process_ids) {
     if (csrss_process_ids.empty()) {
         std::cerr << "[INPUTSTATE] No csrss.exe processes found.\n";
         return false;
@@ -137,7 +141,7 @@ InputState::InputState(const DMA& dma) : dma_(dma) {
             if (export_function_name.find("gptCursorAsync") == std::string::npos)
                 continue;
 
-            POINT position = dma_.read<POINT>(entry.vaFunction, process_id);
+            Point position = dma_.read<Point>(entry.vaFunction, process_id);
 
             if (((position.x == 0 && position.y == 0) || (position.x == 512 && position.y == 384)))
                 continue;
@@ -153,15 +157,15 @@ InputState::InputState(const DMA& dma) : dma_(dma) {
     return (gptCursorAsync_address_ != 0 && gptCursorAsync_process_id_ != 0);
 }
 
-[[nodiscard]] POINT InputState::get_cursor_position() const {
-    return dma_.read<POINT>(gptCursorAsync_address_, gptCursorAsync_process_id_);
+InputState::Point InputState::get_cursor_position() const {
+    return dma_.read<Point>(gptCursorAsync_address_, gptCursorAsync_process_id_);
 }
 
 void InputState::read_bitmap() {
 	VMMDLL_MemReadEx(dma_.handle, winlogon_process_id_ | VMMDLL_PID_PROCESS_WITH_KERNELMEMORY, gafAsyncKeyState_address_, reinterpret_cast<PBYTE>(&state_bitmap_), sizeof(state_bitmap_), nullptr, VMMDLL_FLAG_NOCACHE);
 }
 
-[[nodiscard]] bool InputState::is_key_down(uint8_t virtual_key_code) const {
+bool InputState::is_key_down(uint8_t virtual_key_code) const {
     constexpr int bits_per_key = 2;
     constexpr int bits_per_byte = 8;
 

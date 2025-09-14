@@ -1,13 +1,24 @@
 #pragma once
 
 #include <array>
-#include "dma.hh"
+#include <string_view>
+#include <cstdint>
+#include <vector>
+
+class DMA;
+
+using DWORD = unsigned long;
 
 class InputState {
 public:
     explicit InputState(const DMA& dma);
 
-    [[nodiscard]] POINT get_cursor_position() const;
+    struct Point {
+        int32_t x;
+        int32_t y;
+    };
+
+    [[nodiscard]] Point get_cursor_position() const;
 
     void read_bitmap();
     [[nodiscard]] bool is_key_down(uint8_t virtual_key_code) const;
@@ -180,13 +191,13 @@ public:
 private:
     const DMA& dma_;
 
-    uint64_t windows_version_build_ = 0;
+    uint64_t windows_version_build_{};
 
-    DWORD gptCursorAsync_process_id_ = 0;
-    uint64_t gptCursorAsync_address_ = 0;
+    DWORD gptCursorAsync_process_id_{};
+    uint64_t gptCursorAsync_address_{};
 
-    DWORD winlogon_process_id_ = 0;
-    uint64_t gafAsyncKeyState_address_ = 0;
+    DWORD winlogon_process_id_{};
+    uint64_t gafAsyncKeyState_address_{};
     std::array<uint8_t, 64> state_bitmap_{};
 
     [[nodiscard]] bool retrieve_gafAsyncKeyState(const std::vector<DWORD>& csrss_process_ids);
