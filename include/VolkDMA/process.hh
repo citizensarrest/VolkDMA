@@ -1,8 +1,8 @@
 #pragma once
 
 #include <string>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
 class DMA;
 using VMMDLL_SCATTER_HANDLE = void*;
@@ -45,8 +45,8 @@ public:
     }
 
     template <typename T>
-    void write(uint64_t address, T value, DWORD process_id = 0) const {
-        this->write(address, &value, sizeof(T), process_id);
+    bool write(uint64_t address, T value, DWORD process_id = 0) const {
+        return this->write(address, &value, sizeof(T), process_id);
     }
 
     template <typename T>

@@ -1,17 +1,20 @@
-#include "dma.hh"
-#include "inputstate.hh"
-#include "vmm/vmmdll.h"
+#include "include/VolkDMA/dma.hh"
 
-#include <iostream>
-#include <fstream>
+#include <cstdlib>
 #include <filesystem>
+#include <fstream>
+#include <iostream>
 #include <sstream>
-#include <cstdlib> 
+
+#include "external/vmm/vmmdll.h"
+
+#include "include/VolkDMA/inputstate.hh"
+#include "include/VolkDMA/internal/volkresource.hh"
 
 template<typename T>
 T DMA::read(uint64_t address, DWORD process_id) const {
     T rdbuf = {};
-    VMMDLL_MemReadEx(this->handle, process_id, address,
+    VMMDLL_MemReadEx(this->handle.get(), process_id, address,
         reinterpret_cast<PBYTE>(&rdbuf),
         sizeof(T), nullptr,
         VMMDLL_FLAG_NOCACHE | VMMDLL_FLAG_ZEROPAD_ON_FAIL);
@@ -24,7 +27,7 @@ template int DMA::read<int>(uint64_t, DWORD) const;
 template InputState::Point DMA::read<InputState::Point>(uint64_t, DWORD) const;
 
 DMA::DMA(bool use_memory_map) {
-    LPCSTR args[8] = {"", "-device", "fpga://algo=0", "", "", "", "", ""};
+    LPCSTR argv[8] = {"", "-device", "fpga://algo=0", "", "", "", "", ""};
     DWORD argc = 3;
     
     std::string path;
@@ -35,12 +38,13 @@ DMA::DMA(bool use_memory_map) {
             std::cerr << "[DMA] Could not dump memory map.\n";
         }
         else {
-            args[argc++] = "-memmap";
-            args[argc++] = path.c_str();
+            argv[argc++] = "-memmap";
+            argv[argc++] = path.c_str();
         }
     }
 
-    if (!(handle = VMMDLL_Initialize(argc, args))) {
+    handle.reset(VMMDLL_Initialize(argc, argv));
+    if (!handle) {
         std::cerr << "[DMA] Failed to initialize.\n";
         return;
     }
@@ -48,16 +52,10 @@ DMA::DMA(bool use_memory_map) {
     this->clean_fpga();
 }
 
-DMA::~DMA() {
-    if (this->handle) {
-        VMMDLL_Close(this->handle);
-    }
-}
-
 DWORD DMA::get_process_id(const std::string& process_name) const {
     DWORD process_id = 0;
 
-    if (!VMMDLL_PidGetFromName(this->handle, process_name.c_str(), &process_id) || process_id == 0) {
+    if (!VMMDLL_PidGetFromName(this->handle.get(), process_name.c_str(), &process_id) || process_id == 0) {
         std::cerr << "[PROCESS] Failed to get ID for process: " << process_name << ".\n";
     }
 
@@ -66,22 +64,22 @@ DWORD DMA::get_process_id(const std::string& process_name) const {
 
 std::vector<DWORD> DMA::get_process_id_list(const std::string& process_name) const {
     std::vector<DWORD> list = { };
-    PVMMDLL_PROCESS_INFORMATION process_info = NULL;
+
+    VolkResource<VMMDLL_PROCESS_INFORMATION> process_info{};
     DWORD total_processes = 0;
 
-    if (!VMMDLL_ProcessGetInformationAll(this->handle, &process_info, &total_processes) || total_processes == 0) {
+    if (!VMMDLL_ProcessGetInformationAll(this->handle.get(), process_info.out(), &total_processes) || total_processes == 0) {
         std::cerr << "[PROCESS] Failed to retrieve process process list.\n";
         return list;
     }
 
     for (size_t i = 0; i < total_processes; i++) {
-        auto process = process_info[i];
+        const auto& process = process_info.get()[i];
         if (strstr(process.szNameLong, process_name.c_str())) {
             list.push_back(process.dwPID);
         }
     }
-
-    VMMDLL_MemFree(process_info);
+    
     return list;
 }
 
@@ -93,7 +91,7 @@ uint64_t DMA::find_signature(const char* signature, uint64_t range_start, uint64
     uint64_t size = range_end - range_start;
     std::vector<uint8_t> buffer(size);
 
-    if (!VMMDLL_MemReadEx(this->handle, process_id, range_start, buffer.data(), size, nullptr, VMMDLL_FLAG_NOCACHE | VMMDLL_FLAG_ZEROPAD_ON_FAIL)) {
+    if (!VMMDLL_MemReadEx(this->handle.get(), process_id, range_start, buffer.data(), size, nullptr, VMMDLL_FLAG_NOCACHE | VMMDLL_FLAG_ZEROPAD_ON_FAIL)) {
         return 0;
     }
 
@@ -131,27 +129,25 @@ uint64_t DMA::find_signature(const char* signature, uint64_t range_start, uint64
 }
 
 bool DMA::dump_memory_map() {
-    LPCSTR args[] = { "-device", "fpga", "-waitinitialize", "-norefresh", "", "" };
-    int argc = 4;
+    LPCSTR argv[] = { "-device", "fpga", "-waitinitialize", "-norefresh" };
+    const DWORD argc = static_cast<DWORD>(std::size(argv));
 
-    VMM_HANDLE temp_handle = VMMDLL_Initialize(argc, args);
+    VolkHandle temp_handle(VMMDLL_Initialize(argc, argv), vmm_close);
     if (!temp_handle) {
         std::cerr << "[DMA] Failed to open handle.\n";
         return false;
     }
 
-    PVMMDLL_MAP_PHYSMEM p_phys_mem_map = nullptr;
-    if (!VMMDLL_Map_GetPhysMem(temp_handle, &p_phys_mem_map)) {
+    VolkResource<VMMDLL_MAP_PHYSMEM> p_phys_mem_map{};
+    if (!VMMDLL_Map_GetPhysMem(temp_handle.get(), p_phys_mem_map.out())) {
         std::cerr << "[DMA] Failed to get physical memory map.\n";
-
-        VMMDLL_Close(temp_handle);
         return false;
     }
 
-    if (!p_phys_mem_map || p_phys_mem_map->dwVersion != VMMDLL_MAP_PHYSMEM_VERSION || p_phys_mem_map->cMap == 0) {
+    if (!p_phys_mem_map ||
+        p_phys_mem_map->dwVersion != VMMDLL_MAP_PHYSMEM_VERSION ||
+        p_phys_mem_map->cMap == 0) {
         std::cerr << "[DMA] Invalid memory map.\n";
-        VMMDLL_MemFree(p_phys_mem_map);
-        VMMDLL_Close(temp_handle);
         return false;
     }
 
@@ -163,16 +159,11 @@ bool DMA::dump_memory_map() {
     auto current_path = std::filesystem::current_path();
     std::ofstream file(current_path / "memory_map.txt");
     if (!file.is_open()) {
-        VMMDLL_MemFree(p_phys_mem_map);
-        VMMDLL_Close(temp_handle);
         return false;
     }
 
     file << sb.str();
     file.close();
-
-    VMMDLL_MemFree(p_phys_mem_map);
-    VMMDLL_Close(temp_handle);
 
     return true;
 }
@@ -180,7 +171,7 @@ bool DMA::dump_memory_map() {
 bool DMA::clean_fpga() {
     ULONG64 fpga_id = 0, version_major = 0, version_minor = 0;
 
-    if (!VMMDLL_ConfigGet(this->handle, LC_OPT_FPGA_FPGA_ID, &fpga_id) && VMMDLL_ConfigGet(this->handle, LC_OPT_FPGA_VERSION_MAJOR, &version_major) && VMMDLL_ConfigGet(this->handle, LC_OPT_FPGA_VERSION_MINOR, &version_minor)) {
+    if (!(VMMDLL_ConfigGet(this->handle.get(), LC_OPT_FPGA_FPGA_ID, &fpga_id) && VMMDLL_ConfigGet(this->handle.get(), LC_OPT_FPGA_VERSION_MAJOR, &version_major) && VMMDLL_ConfigGet(this->handle.get(), LC_OPT_FPGA_VERSION_MINOR, &version_minor))) {
         std::cerr << "[DMA] Failed to lookup FPGA device. Attempting to continue initializing.\n";
         return false;
     }

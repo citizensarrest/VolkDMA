@@ -11,20 +11,21 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\leechcore\leechcore.h" />
-    <ClInclude Include="include\vmm\vmmdll.h" />
-    <ClInclude Include="source\dma.hh" />
-    <ClInclude Include="source\inputstate.hh" />
-    <ClInclude Include="source\process.hh" />
+    <ClInclude Include="external\leechcore\leechcore.h" />
+    <ClInclude Include="external\vmm\vmmdll.h" />
+    <ClInclude Include="include\VolkDMA\dma.hh" />
+    <ClInclude Include="include\VolkDMA\inputstate.hh" />
+    <ClInclude Include="include\VolkDMA\internal\volkresource.hh" />
+    <ClInclude Include="include\VolkDMA\process.hh" />
   </ItemGroup>
   <ItemGroup>
-    <Library Include="include\leechcore\leechcore.lib" />
-    <Library Include="include\vmm\vmm.lib" />
+    <Library Include="external\leechcore\leechcore.lib" />
+    <Library Include="external\vmm\vmm.lib" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="source\dma.cpp" />
-    <ClCompile Include="source\inputstate.cpp" />
-    <ClCompile Include="source\process.cpp" />
+    <ClCompile Include="src\dma.cpp" />
+    <ClCompile Include="src\inputstate.cpp" />
+    <ClCompile Include="src\process.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
@@ -74,7 +75,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>
       </PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <LanguageStandard>stdcpp20</LanguageStandard>
@@ -85,10 +86,10 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <Lib>
-      <AdditionalDependencies>leechcore.lib;vmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>external/leechcore/leechcore.lib;external/vmm/vmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
     <Lib>
-      <AdditionalLibraryDirectories>$(ProjectDir)include/leechcore;$(ProjectDir)include/vmm;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -102,7 +103,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>
       </PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
@@ -114,10 +115,10 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <Lib>
-      <AdditionalDependencies>leechcore.lib;vmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>external/leechcore/leechcore.lib;external/vmm/vmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
     <Lib>
-      <AdditionalLibraryDirectories>$(ProjectDir)include/leechcore;$(ProjectDir)include/vmm;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

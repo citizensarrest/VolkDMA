@@ -1,53 +1,65 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
+    <Filter Include="external">
+      <UniqueIdentifier>{8f51544e-4fad-4dc2-bc08-c15df1b210fb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="external\leechcore">
+      <UniqueIdentifier>{ed810cf3-69fa-4252-8d73-3b066f3a593d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="external\vmm">
+      <UniqueIdentifier>{6203e5d7-a367-4e25-ab44-e4f2e75075c4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{72b5aeb7-9ef2-4597-9394-e1042c19e6b3}</UniqueIdentifier>
+    </Filter>
     <Filter Include="include">
-      <UniqueIdentifier>{cdf14b50-69ad-4a85-a2aa-a90805305cd7}</UniqueIdentifier>
+      <UniqueIdentifier>{58b92522-20e9-4c8e-8771-768765a333f5}</UniqueIdentifier>
     </Filter>
-    <Filter Include="include\leechcore">
-      <UniqueIdentifier>{bb6ede5a-932c-445b-a5e6-da3b79ed9b02}</UniqueIdentifier>
+    <Filter Include="include\VolkDMA">
+      <UniqueIdentifier>{cecd8df2-418d-4b62-b3ba-f7ca7fd671ae}</UniqueIdentifier>
     </Filter>
-    <Filter Include="include\vmm">
-      <UniqueIdentifier>{f4799916-a360-4b2b-9914-6b4c94c4c272}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="source">
-      <UniqueIdentifier>{1c5c0877-8518-445f-8891-ecc6aec9a305}</UniqueIdentifier>
+    <Filter Include="include\VolkDMA\internal">
+      <UniqueIdentifier>{93caef52-fd09-4479-9c41-3e7f430dc11d}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\leechcore\leechcore.h">
-      <Filter>include\leechcore</Filter>
+    <ClInclude Include="external\leechcore\leechcore.h">
+      <Filter>external\leechcore</Filter>
     </ClInclude>
-    <ClInclude Include="include\vmm\vmmdll.h">
-      <Filter>include\vmm</Filter>
+    <ClInclude Include="external\vmm\vmmdll.h">
+      <Filter>external\vmm</Filter>
     </ClInclude>
-    <ClInclude Include="source\dma.hh">
-      <Filter>source</Filter>
+    <ClInclude Include="include\VolkDMA\dma.hh">
+      <Filter>include\VolkDMA</Filter>
     </ClInclude>
-    <ClInclude Include="source\inputstate.hh">
-      <Filter>source</Filter>
+    <ClInclude Include="include\VolkDMA\inputstate.hh">
+      <Filter>include\VolkDMA</Filter>
     </ClInclude>
-    <ClInclude Include="source\process.hh">
-      <Filter>source</Filter>
+    <ClInclude Include="include\VolkDMA\process.hh">
+      <Filter>include\VolkDMA</Filter>
+    </ClInclude>
+    <ClInclude Include="include\VolkDMA\internal\volkresource.hh">
+      <Filter>include\VolkDMA\internal</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Library Include="include\vmm\vmm.lib">
-      <Filter>include\vmm</Filter>
+    <Library Include="external\leechcore\leechcore.lib">
+      <Filter>external\leechcore</Filter>
     </Library>
-    <Library Include="include\leechcore\leechcore.lib">
-      <Filter>include\leechcore</Filter>
+    <Library Include="external\vmm\vmm.lib">
+      <Filter>external\vmm</Filter>
     </Library>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="source\dma.cpp">
-      <Filter>source</Filter>
+    <ClCompile Include="src\dma.cpp">
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\inputstate.cpp">
-      <Filter>source</Filter>
+    <ClCompile Include="src\inputstate.cpp">
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\process.cpp">
-      <Filter>source</Filter>
+    <ClCompile Include="src\process.cpp">
+      <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
