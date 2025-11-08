@@ -8,7 +8,7 @@ on:
 
 env:
   # Path to the solution file relative to the root of the project.
-  SOLUTION_FILE_PATH: .
+  SOLUTION_FILE_PATH: VolkDMA.sln
 
   # Configuration type to build.
   BUILD_CONFIGURATION: Release
@@ -21,23 +21,20 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
     - name: Add MSBuild to PATH
       uses: microsoft/setup-msbuild@v1.0.2
 
     - name: Restore NuGet packages
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
       run: nuget restore ${{ env.SOLUTION_FILE_PATH }}
 
-    - name: Build
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
-      run: msbuild /m /p:Configuration=${{ env.BUILD_CONFIGURATION }} ${{ env.SOLUTION_FILE_PATH }}
+    - name: Build solution
+      run: msbuild ${{ env.SOLUTION_FILE_PATH }} /m /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=x64
 
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
       with:
-        name: build-artifact
-        path: |
-          **/bin/${{ env.BUILD_CONFIGURATION }}/
-          **/Build/${{ env.BUILD_CONFIGURATION }}/
+        name: VolkDMA-Build
+        path: VolkDMA/x64/${{ env.BUILD_CONFIGURATION }}/
