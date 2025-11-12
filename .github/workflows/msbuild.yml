@@ -31,10 +31,11 @@ jobs:
       run: msbuild ${{ env.SOLUTION_FILE_PATH }} /m /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=x64
 
     - name: Verify build output
-      run: dir VolkDMA\\x64\\${{ env.BUILD_CONFIGURATION }} /b
+      run: dir VolkDMA\x64\${{ env.BUILD_CONFIGURATION }} /b
 
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
       with:
         name: VolkDMA-StaticLib
         path: VolkDMA/x64/${{ env.BUILD_CONFIGURATION }}/VolkDMARelease.lib
+
