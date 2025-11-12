@@ -21,10 +21,23 @@ jobs:
       run: nuget restore ${{ env.SOLUTION_FILE_PATH }}
     - name: Build solution
       run: msbuild ${{ env.SOLUTION_FILE_PATH }} /m /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=x64
-    - name: Verify build output
-      run: Get-ChildItem -Path "VolkDMA\x64\${{ env.BUILD_CONFIGURATION }}" -Name
+    
+    - name: List build outputs (Debug)
+      run: |
+        Write-Host "=== Searching for VolkDMARelease.lib ==="
+        Get-ChildItem -Path . -Recurse -Filter "VolkDMARelease.lib" -ErrorAction SilentlyContinue | ForEach-Object { 
+          Write-Host "Found: $($_.FullName)" 
+        }
+        Write-Host "`n=== All .lib files ==="
+        Get-ChildItem -Path . -Recurse -Filter "*.lib" -ErrorAction SilentlyContinue | ForEach-Object { 
+          Write-Host $_.FullName 
+        }
+    
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
       with:
         name: VolkDMA-StaticLib
-        path: VolkDMA/x64/${{ env.BUILD_CONFIGURATION }}/VolkDMARelease.lib
+        path: |
+          x64/${{ env.BUILD_CONFIGURATION }}/VolkDMARelease.lib
+          VolkDMA/x64/${{ env.BUILD_CONFIGURATION }}/VolkDMARelease.lib
+        if-no-files-found: error
